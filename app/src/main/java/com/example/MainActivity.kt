@@ -42,15 +42,23 @@ import com.example.ui.util.BiometricHelper
 import com.example.ui.viewmodel.InventoryViewModel
 import kotlinx.coroutines.launch
 
+import com.example.ui.util.PermissionManager
+import com.example.ui.components.PermissionRationaleDialog
+
 enum class AppScreen(val title: String, val icon: ImageVector) {
     DASHBOARD("Dashboard", Icons.Default.Dashboard),
     SALES("Sales / POS", Icons.Default.ReceiptLong),
-    CUSTOMERS("Customers", Icons.Default.People),
+    PEOPLE("People", Icons.Default.People),
     EXPENSES("Expenses", Icons.Default.Receipt),
-    EMPLOYEES("Staff & Salaries", Icons.Default.Badge),
     REPORTS("Reports & P&L", Icons.Default.BarChart),
     SETTINGS("Settings", Icons.Default.Settings),
     INVOICE_VIEW("Invoice / Receipt", Icons.Default.Receipt)
+}
+
+enum class PendingPermission {
+    NONE,
+    STORAGE,
+    NOTIFICATION
 }
 
 class MainActivity : FragmentActivity() {
@@ -58,6 +66,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var authRepository: AuthRepository
     private lateinit var themePreferenceManager: ThemePreferenceManager
     private lateinit var businessProfileManager: BusinessProfileManager
+    private lateinit var permissionManager: PermissionManager
 
     override fun onResume() {
         super.onResume()
@@ -73,6 +82,7 @@ class MainActivity : FragmentActivity() {
         authRepository = AuthRepository.getInstance(applicationContext)
         themePreferenceManager = ThemePreferenceManager.getInstance(applicationContext)
         businessProfileManager = BusinessProfileManager.getInstance(applicationContext)
+        permissionManager = PermissionManager(this)
 
         authRepository.checkAndEnforceSessionExpiration()
 
@@ -84,22 +94,57 @@ class MainActivity : FragmentActivity() {
                 AppThemeMode.DARK -> true
             }
 
-            // Notification Permission (Android 13+)
+
             val context = LocalContext.current
-            val notificationPermissionLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestPermission()
-            ) { /* Permission response handled gracefully */ }
+            val sharedPrefs = remember { context.getSharedPreferences("app_permissions_prefs", android.content.Context.MODE_PRIVATE) }
+            var pendingPermission by remember { mutableStateOf(PendingPermission.NONE) }
 
             LaunchedEffect(Unit) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    if (ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.POST_NOTIFICATIONS
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
+                if (permissionManager.shouldShowStorageRationale()) {
+                    pendingPermission = PendingPermission.STORAGE
+                } else if (permissionManager.shouldShowNotificationRationale()) {
+                    pendingPermission = PendingPermission.NOTIFICATION
                 }
+            }
+
+            if (pendingPermission == PendingPermission.STORAGE) {
+                PermissionRationaleDialog(
+                    title = "Storage Access Required",
+                    description = "This permission allows the app to save and manage exported files such as invoices, reports, and backups.",
+                    onConfirm = {
+                        permissionManager.requestStoragePermission { isGranted ->
+                            if (permissionManager.shouldShowNotificationRationale()) {
+                                pendingPermission = PendingPermission.NOTIFICATION
+                            } else {
+                                pendingPermission = PendingPermission.NONE
+                            }
+                        }
+                    },
+                    onDismiss = {
+                        sharedPrefs.edit().putBoolean("has_requested_storage", true).apply()
+                        if (permissionManager.shouldShowNotificationRationale()) {
+                            pendingPermission = PendingPermission.NOTIFICATION
+                        } else {
+                            pendingPermission = PendingPermission.NONE
+                        }
+                    }
+                )
+            }
+
+            if (pendingPermission == PendingPermission.NOTIFICATION) {
+                PermissionRationaleDialog(
+                    title = "Notification Permission Required",
+                    description = "Allow notifications so the app can send important reminders, alerts, and payroll updates.",
+                    onConfirm = {
+                        permissionManager.requestNotificationPermission { isGranted ->
+                            pendingPermission = PendingPermission.NONE
+                        }
+                    },
+                    onDismiss = {
+                        sharedPrefs.edit().putBoolean("has_requested_notification", true).apply()
+                        pendingPermission = PendingPermission.NONE
+                    }
+                )
             }
 
             MyApplicationTheme(darkTheme = isDark) {
@@ -269,10 +314,10 @@ fun MainApp(
                     )
 
                     DrawerNavMenuItem(
-                        screen = AppScreen.CUSTOMERS,
+                        screen = AppScreen.PEOPLE,
                         currentScreen = currentScreen,
                         onClick = {
-                            currentScreen = AppScreen.CUSTOMERS
+                            currentScreen = AppScreen.PEOPLE
                             scope.launch { drawerState.close() }
                         }
                     )
@@ -281,14 +326,6 @@ fun MainApp(
                         currentScreen = currentScreen,
                         onClick = {
                             currentScreen = AppScreen.EXPENSES
-                            scope.launch { drawerState.close() }
-                        }
-                    )
-                    DrawerNavMenuItem(
-                        screen = AppScreen.EMPLOYEES,
-                        currentScreen = currentScreen,
-                        onClick = {
-                            currentScreen = AppScreen.EMPLOYEES
                             scope.launch { drawerState.close() }
                         }
                     )
@@ -395,25 +432,24 @@ fun MainApp(
                         },
                         onAddCustomer = { viewModel.saveCustomer(it) }
                     )
-                    AppScreen.CUSTOMERS -> CustomersScreen(
+                    AppScreen.PEOPLE -> PeopleScreen(
                         customers = customers,
-                        onSaveCustomer = { viewModel.saveCustomer(it) },
-                        onDeleteCustomer = { viewModel.deleteCustomer(it) },
-                        onSettlePayment = { id, amt -> viewModel.settleCustomerPayment(id, amt) }
-                    )
-                    AppScreen.EXPENSES -> ExpensesScreen(
-                        expenses = expenses,
-                        onSaveExpense = { viewModel.saveExpense(it) },
-                        onDeleteExpense = { viewModel.deleteExpense(it) }
-                    )
-                    AppScreen.EMPLOYEES -> EmployeesScreen(
                         employees = employees,
                         salaryPayments = salaryPayments,
+                        sales = sales,
+                        onSaveCustomer = { viewModel.saveCustomer(it) },
+                        onDeleteCustomer = { viewModel.deleteCustomer(it) },
+                        onSettlePayment = { id, amt -> viewModel.settleCustomerPayment(id, amt) },
                         onSaveEmployee = { viewModel.saveEmployee(it) },
                         onDeleteEmployee = { viewModel.deleteEmployee(it) },
                         onDisburseSalary = { viewModel.disburseSalary(it) },
                         onUpdateSalary = { viewModel.updateSalary(it) },
                         onDeleteSalary = { viewModel.deleteSalary(it) }
+                    )
+                    AppScreen.EXPENSES -> ExpensesScreen(
+                        expenses = expenses,
+                        onSaveExpense = { viewModel.saveExpense(it) },
+                        onDeleteExpense = { viewModel.deleteExpense(it) }
                     )
                     AppScreen.REPORTS -> ReportsScreen(
                         sales = sales,
