@@ -1,0 +1,6 @@
+{
+  "name": "Inventory Master",
+  "description": "Complete modern inventory and business management system with sales, purchases, stock movements, customers, suppliers, expenses, salaries, invoices and financial reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
