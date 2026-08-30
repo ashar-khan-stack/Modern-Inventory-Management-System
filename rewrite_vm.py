@@ -1,7 +1,9 @@
-package com.example.ui.viewmodel
+import sys
+
+content = """package com.example.ui.viewmodel
 
 import android.app.Application
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.model.*
@@ -15,7 +17,8 @@ sealed class UiEvent {
     data class NavigateToInvoice(val sale: SaleOrderEntity) : UiEvent()
 }
 
-class InventoryViewModel(private val db: AppDatabase) : ViewModel() {
+class InventoryViewModel(application: Application) : AndroidViewModel(application) {
+    private val db = AppDatabase.getDatabase(application)
     private val repository = InventoryRepository(db)
 
     private val _uiEvents = MutableSharedFlow<UiEvent>()
@@ -229,25 +232,6 @@ class InventoryViewModel(private val db: AppDatabase) : ViewModel() {
             _uiEvents.emit(UiEvent.ShowToast("All application data cleared!"))
         }
     }
-    companion object {
-        fun saveImageUriToAppStorage(context: android.content.Context, uri: android.net.Uri, oldPath: String? = null): String {
-            return try {
-                val inputStream = context.contentResolver.openInputStream(uri) ?: return uri.toString()
-                val imagesDir = java.io.File(context.filesDir, "product_images")
-                if (!imagesDir.exists()) {
-                    imagesDir.mkdirs()
-                }
-                val fileName = "img_${System.currentTimeMillis()}_${(1000..9999).random()}.jpg"
-                val file = java.io.File(imagesDir, fileName)
-                file.outputStream().use { output ->
-                    inputStream.copyTo(output)
-                }
-                file.absolutePath
-            } catch (e: Exception) {
-                uri.toString()
-            }
-        }
-    }
 }
 
 data class DashboardTotals(
@@ -255,3 +239,8 @@ data class DashboardTotals(
     val totalExpenses: Double,
     val totalOutstanding: Double
 )
+"""
+
+with open('app/src/main/java/com/example/ui/viewmodel/InventoryViewModel.kt', 'w') as f:
+    f.write(content)
+print("Rewritten VM from scratch!")

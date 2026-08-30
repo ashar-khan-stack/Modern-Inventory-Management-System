@@ -1,4 +1,6 @@
-package com.example.data.repository
+import sys
+
+exporter_code = """package com.example.data.repository
 
 import com.example.data.local.AppDatabase
 import com.example.data.model.*
@@ -191,10 +193,6 @@ object DatabaseExporter {
                     profileManager.saveProfile(jsonToBusinessProfile(profileJson))
                 }
 
-                AppDatabase.appContext?.let { ctx: android.content.Context ->
-                    com.example.ui.util.OutstandingPaymentNotificationManager.syncOutstandingNotifications(ctx)
-                }
-
                 Result.success(validation)
             } catch (e: Exception) {
                 Result.failure(e)
@@ -210,11 +208,8 @@ object DatabaseExporter {
         o.put("email", c.email)
         o.put("address", c.address)
         o.put("city", c.city)
-        o.put("openingBalance", c.openingBalance)
-        o.put("totalPurchases", c.totalPurchases)
-        o.put("totalPaid", c.totalPaid)
         o.put("outstandingBalance", c.outstandingBalance)
-        o.put("status", c.status)
+        o.put("createdAt", c.createdAt)
         return o
     }
 
@@ -226,11 +221,8 @@ object DatabaseExporter {
             email = o.optString("email", ""),
             address = o.optString("address", ""),
             city = o.optString("city", ""),
-            openingBalance = o.optDouble("openingBalance", 0.0),
-            totalPurchases = o.optDouble("totalPurchases", 0.0),
-            totalPaid = o.optDouble("totalPaid", 0.0),
             outstandingBalance = o.optDouble("outstandingBalance", 0.0),
-            status = o.optString("status", "Active")
+            createdAt = o.optLong("createdAt", System.currentTimeMillis())
         )
     }
 
@@ -238,22 +230,18 @@ object DatabaseExporter {
         val o = JSONObject()
         o.put("id", s.id)
         o.put("invoiceNumber", s.invoiceNumber)
-        o.put("taxInvoiceNumber", s.taxInvoiceNumber)
-        o.put("taxId", s.taxId)
         o.put("customerId", s.customerId)
         o.put("customerName", s.customerName)
-        o.put("customerPhone", s.customerPhone)
-        o.put("customerAddress", s.customerAddress)
-        o.put("itemsJson", s.itemsJson)
         o.put("subtotal", s.subtotal)
         o.put("discountAmount", s.discountAmount)
-        o.put("taxAmount", s.taxAmount)
         o.put("taxRatePercent", s.taxRatePercent)
+        o.put("taxAmount", s.taxAmount)
         o.put("grandTotal", s.grandTotal)
         o.put("paidAmount", s.paidAmount)
         o.put("remainingBalance", s.remainingBalance)
         o.put("paymentMethod", s.paymentMethod)
         o.put("paymentStatus", s.paymentStatus)
+        o.put("itemsJson", s.itemsJson)
         o.put("notes", s.notes)
         o.put("createdAt", s.createdAt)
         return o
@@ -263,22 +251,18 @@ object DatabaseExporter {
         return SaleOrderEntity(
             id = 0,
             invoiceNumber = o.optString("invoiceNumber", ""),
-            taxInvoiceNumber = o.optString("taxInvoiceNumber", ""),
-            taxId = o.optString("taxId", ""),
             customerId = o.optLong("customerId", 0),
             customerName = o.optString("customerName", ""),
-            customerPhone = o.optString("customerPhone", ""),
-            customerAddress = o.optString("customerAddress", ""),
-            itemsJson = o.optString("itemsJson", "[]"),
             subtotal = o.optDouble("subtotal", 0.0),
             discountAmount = o.optDouble("discountAmount", 0.0),
-            taxAmount = o.optDouble("taxAmount", 0.0),
             taxRatePercent = o.optDouble("taxRatePercent", 0.0),
+            taxAmount = o.optDouble("taxAmount", 0.0),
             grandTotal = o.optDouble("grandTotal", 0.0),
             paidAmount = o.optDouble("paidAmount", 0.0),
             remainingBalance = o.optDouble("remainingBalance", 0.0),
             paymentMethod = o.optString("paymentMethod", "Cash"),
             paymentStatus = o.optString("paymentStatus", "Paid"),
+            itemsJson = o.optString("itemsJson", "[]"),
             notes = o.optString("notes", ""),
             createdAt = o.optLong("createdAt", System.currentTimeMillis())
         )
@@ -288,31 +272,23 @@ object DatabaseExporter {
         val o = JSONObject()
         o.put("id", e.id)
         o.put("category", e.category)
-        o.put("description", e.description)
         o.put("amount", e.amount)
-        o.put("paidAmount", e.paidAmount)
-        o.put("remainingBalance", e.remainingBalance)
-        o.put("paymentStatus", e.paymentStatus)
-        o.put("paymentMethod", e.paymentMethod)
-        o.put("notes", e.notes)
+        o.put("description", e.description)
         o.put("date", e.date)
+        o.put("paymentMethod", e.paymentMethod)
+        o.put("receiptUri", e.receiptUri)
         return o
     }
 
     private fun jsonToExpense(o: JSONObject): ExpenseEntity {
-        val amt = o.optDouble("amount", 0.0)
-        val paid = o.optDouble("paidAmount", amt)
         return ExpenseEntity(
             id = 0,
             category = o.optString("category", "General"),
+            amount = o.optDouble("amount", 0.0),
             description = o.optString("description", ""),
-            amount = amt,
-            paidAmount = paid,
-            remainingBalance = o.optDouble("remainingBalance", (amt - paid).coerceAtLeast(0.0)),
-            paymentStatus = o.optString("paymentStatus", "Paid"),
+            date = o.optLong("date", System.currentTimeMillis()),
             paymentMethod = o.optString("paymentMethod", "Cash"),
-            notes = o.optString("notes", ""),
-            date = o.optLong("date", System.currentTimeMillis())
+            receiptUri = o.optString("receiptUri", "")
         )
     }
 
@@ -419,3 +395,9 @@ object DatabaseExporter {
         )
     }
 }
+"""
+
+with open('app/src/main/java/com/example/data/repository/DatabaseExporter.kt', 'w') as f:
+    f.write(exporter_code)
+
+print("DatabaseExporter rewritten accurately!")

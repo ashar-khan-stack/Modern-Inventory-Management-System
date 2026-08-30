@@ -1,5 +1,7 @@
 package com.example
 
+import com.example.ui.viewmodel.DashboardSummaryTotals
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -34,7 +36,6 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.data.model.ProductEntity
 import com.example.data.model.SaleOrderEntity
 import com.example.data.repository.*
 import com.example.ui.screens.*
@@ -50,7 +51,6 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
     DASHBOARD("Dashboard", Icons.Default.Dashboard),
     NEW_SALE("New Sale", Icons.Default.AddShoppingCart),
     SALES("Sales / History", Icons.Default.ReceiptLong),
-    PRODUCTS("Products / Inventory", Icons.Default.Inventory),
     PURCHASES("Purchases", Icons.Default.ShoppingBag),
     CUSTOMER_INFO("Customer Info", Icons.Default.People),
     EMPLOYEE_INFO("Employee Info", Icons.Default.Badge),
@@ -144,7 +144,10 @@ class MainActivity : FragmentActivity() {
                     confirmButtonText = "Allow",
                     dismissButtonText = "Not Now",
                     onConfirm = {
-                        permissionManager.requestNotificationPermission { checkNextPermission() }
+                        permissionManager.requestNotificationPermission {
+                            com.example.ui.util.OutstandingPaymentNotificationManager.syncOutstandingNotifications(this@MainActivity)
+                            checkNextPermission()
+                        }
                     },
                     onDismiss = {
                         sharedPrefs.edit().putBoolean("has_requested_notification", true).apply()
@@ -156,7 +159,7 @@ class MainActivity : FragmentActivity() {
             if (pendingPermission == PendingPermission.CAMERA) {
                 PermissionRationaleDialog(
                     title = "Camera Access Required",
-                    description = "Allow camera access to take photos of products for your inventory.",
+                    description = "Allow camera access to take photos of items for your sales invoices.",
                     confirmButtonText = "Allow",
                     dismissButtonText = "Not Now",
                     onConfirm = {
@@ -228,9 +231,12 @@ fun MainApp(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         if (com.example.BuildConfig.DEBUG) {
-            val result = com.example.ui.util.AppStartupDiagnostics.runStartupDiagnostics(context)
-            com.example.ui.util.DebugNavigationLogger.logScreenState("Startup", "Diagnostics completed. Consistency issues: ${result.issues.size}")
+            com.example.ui.util.AppStartupDiagnostics.runStartupDiagnostics(com.example.data.local.AppDatabase.getInstance(context))
+            com.example.ui.util.DebugNavigationLogger.logScreenState("Startup", "Diagnostics completed.")
         }
+        com.example.ui.util.OutstandingPaymentNotificationManager.syncOutstandingNotifications(context)
+        com.example.ui.util.OutstandingPaymentScheduler.schedulePeriodicCheck(context)
+        com.example.ui.util.OutstandingPaymentNotificationWorker.scheduleWork(context)
     }
 
     LaunchedEffect(currentScreen) {
@@ -244,15 +250,12 @@ fun MainApp(
 
     // State Collection from ViewModel
     val customers by viewModel.customers.collectAsStateWithLifecycle()
-    val products by viewModel.products.collectAsStateWithLifecycle()
     val sales by viewModel.sales.collectAsStateWithLifecycle()
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
     val employees by viewModel.employees.collectAsStateWithLifecycle()
     val salaryPayments by viewModel.salaryPayments.collectAsStateWithLifecycle()
     val dashboardSummaryTotals by viewModel.dashboardSummaryTotals.collectAsStateWithLifecycle()
 
-    val posCart by viewModel.posCart.collectAsStateWithLifecycle()
-    val selectedCustomer by viewModel.selectedCustomer.collectAsStateWithLifecycle()
 
     // Handle back button when on sub-screens or drawer is open
     BackHandler(enabled = drawerState.isOpen || currentScreen != AppScreen.DASHBOARD) {
@@ -346,14 +349,6 @@ fun MainApp(
                         currentScreen = currentScreen,
                         onClick = {
                             currentScreen = AppScreen.SALES
-                            scope.launch { drawerState.close() }
-                        }
-                    )
-                    DrawerNavMenuItem(
-                        screen = AppScreen.PRODUCTS,
-                        currentScreen = currentScreen,
-                        onClick = {
-                            currentScreen = AppScreen.PRODUCTS
                             scope.launch { drawerState.close() }
                         }
                     )
@@ -497,7 +492,7 @@ fun MainApp(
                         customers = customers,
                         employees = employees,
                         salaryPayments = salaryPayments,
-                        summaryTotals = dashboardSummaryTotals,
+                        summaryTotals = DashboardSummaryTotals(totalRevenue = dashboardSummaryTotals.totalSales, totalExpenditure = dashboardSummaryTotals.totalExpenses),
                         currentSession = currentSession,
                         onNavigateToSales = { currentScreen = AppScreen.NEW_SALE },
                         onNavigateToExpenses = { currentScreen = AppScreen.EXPENSES },
@@ -509,7 +504,6 @@ fun MainApp(
                         }
                     )
                                         AppScreen.NEW_SALE -> NewSaleScreen(
-                        products = products,
                         customers = customers,
                         onProcessSale = { customer, items, paid, method, disc, tax, notes, onSuccess ->
                             viewModel.processCustomSale(customer, items, paid, method, disc, tax, notes, onSuccess)
@@ -522,16 +516,8 @@ fun MainApp(
                         onAddCustomer = { viewModel.saveCustomer(it) }
                     )
                                                             AppScreen.SALES -> SalesHistoryScreen(
-                        products = products,
                         customers = customers,
                         pastSales = sales,
-                        cartItems = posCart,
-                        selectedCustomer = selectedCustomer,
-                        onCustomerSelected = { viewModel.selectCustomer(it) },
-                        onAddToCart = { },
-                        onUpdateCartQty = { id, qty -> viewModel.updatePosCartItemQuantity(id, qty) },
-                        onRemoveFromCart = { id -> viewModel.removeFromPosCart(id) },
-                        onClearCart = { viewModel.clearPosCart() },
                         onProcessSale = { customer, items, paid, method, disc, tax, notes, onSuccess ->
                             viewModel.processCustomSale(customer, items, paid, method, disc, tax, notes, onSuccess)
                         },
@@ -566,11 +552,6 @@ fun MainApp(
                         onUpdateSalary = { viewModel.updateSalary(it) },
                         onDeleteSalary = { viewModel.deleteSalary(it) }
                     )
-                    AppScreen.PRODUCTS -> ProductsScreen(
-                        products = products,
-                        onSaveProduct = { viewModel.saveProduct(it) },
-                        onDeleteProduct = { viewModel.deleteProduct(it) }
-                    )
                     AppScreen.PURCHASES -> PurchasesScreen(
                         expenses = expenses,
                         onSavePurchase = { viewModel.saveExpense(it) },
@@ -593,7 +574,11 @@ fun MainApp(
                     )
                     AppScreen.ACCEPTANCE_REPORT -> {
                         if (com.example.BuildConfig.DEBUG) {
-                            com.example.ui.screens.AcceptanceReportScreen()
+                            com.example.ui.screens.AcceptanceReportScreen(
+                                /* No parameter needed */
+                            )
+                        } else {
+                            // Empty in production
                         }
                     }
                     AppScreen.SETTINGS -> SettingsScreen(
@@ -601,7 +586,7 @@ fun MainApp(
                         authRepository = authRepository,
                         themePreferenceManager = themePreferenceManager,
                         businessProfileManager = businessProfileManager,
-                        dashboardTotals = dashboardSummaryTotals,
+                        dashboardTotals = DashboardSummaryTotals(totalRevenue = dashboardSummaryTotals.totalSales, totalExpenditure = dashboardSummaryTotals.totalExpenses),
                         onSignOut = { currentScreen = AppScreen.DASHBOARD },
                         onResetData = { viewModel.resetAndReseedData() },
                         onLaunchBiometricPrompt = onLaunchBiometricPrompt
@@ -610,7 +595,6 @@ fun MainApp(
                         sale = selectedInvoiceForView,
                         onBackClick = { currentScreen = previousScreen },
                         onNewSaleClick = {
-                            viewModel.clearPosCart()
                             currentScreen = AppScreen.NEW_SALE
                         }
                     )

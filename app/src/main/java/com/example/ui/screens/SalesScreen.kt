@@ -57,15 +57,7 @@ private fun formatCurrency(amount: Double): String {
 fun SalesHistoryScreen(
     onNavigateToNewSale: () -> Unit,
     customers: List<CustomerEntity>,
-    products: List<ProductEntity>,
     pastSales: List<SaleOrderEntity>,
-    cartItems: List<SaleOrderItem>,
-    selectedCustomer: CustomerEntity?,
-    onCustomerSelected: (CustomerEntity) -> Unit,
-    onAddToCart: (ProductEntity) -> Unit = {},
-    onUpdateCartQty: (productId: Long, qty: Int) -> Unit,
-    onRemoveFromCart: (productId: Long) -> Unit,
-    onClearCart: () -> Unit,
     onProcessSale: (
         customer: CustomerEntity,
         items: List<SaleOrderItem>,

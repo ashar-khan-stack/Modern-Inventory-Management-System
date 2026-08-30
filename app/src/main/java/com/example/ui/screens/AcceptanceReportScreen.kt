@@ -30,7 +30,6 @@ fun AcceptanceReportScreen() {
             TestModuleItem("Dashboard Module", "KPI totals, quick actions, metrics overview, and recent activity feed."),
             TestModuleItem("New Sale / POS Module", "Cart management, customer selection, discount/tax computation, checkout."),
             TestModuleItem("Sales & History Module", "Past sales filtering, receipt viewing, invoice export, payment updates."),
-            TestModuleItem("Products / Inventory Module", "Product catalog management, stock levels, categories, pricing."),
             TestModuleItem("Customer Info Module", "Customer directory, balance tracking, payment settlement."),
             TestModuleItem("Employee Info Module", "Staff directory, designation, contact details."),
             TestModuleItem("Salaries / Payroll Module", "Salary disbursements, payment status, history records."),

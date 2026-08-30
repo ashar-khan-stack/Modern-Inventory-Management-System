@@ -1,4 +1,6 @@
-package com.example.data.repository
+import sys
+
+exporter_code = """package com.example.data.repository
 
 import com.example.data.local.AppDatabase
 import com.example.data.model.*
@@ -189,10 +191,6 @@ object DatabaseExporter {
                 val profileJson = root.optJSONObject("businessProfile")
                 if (profileJson != null) {
                     profileManager.saveProfile(jsonToBusinessProfile(profileJson))
-                }
-
-                AppDatabase.appContext?.let { ctx: android.content.Context ->
-                    com.example.ui.util.OutstandingPaymentNotificationManager.syncOutstandingNotifications(ctx)
                 }
 
                 Result.success(validation)
@@ -419,3 +417,9 @@ object DatabaseExporter {
         )
     }
 }
+"""
+
+with open('app/src/main/java/com/example/data/repository/DatabaseExporter.kt', 'w') as f:
+    f.write(exporter_code)
+
+print("DatabaseExporter updated with exact fields!")

@@ -3,6 +3,7 @@ package com.example.data.repository
 import com.example.data.local.AppDatabase
 import com.example.data.local.OrderJsonParser
 import com.example.data.model.*
+import com.example.ui.util.OutstandingPaymentNotificationManager
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 import java.text.SimpleDateFormat
@@ -10,20 +11,18 @@ import java.util.*
 
 class InventoryRepository(private val db: AppDatabase) {
 
+    private fun triggerNotificationSync() {
+        AppDatabase.appContext?.let { ctx: android.content.Context ->
+            OutstandingPaymentNotificationManager.syncOutstandingNotifications(ctx)
+        }
+    }
+
     // Flows for reactive UI
     val customers: Flow<List<CustomerEntity>> = db.customerDao().getAllCustomers()
     val sales: Flow<List<SaleOrderEntity>> = db.saleDao().getAllSales()
     val expenses: Flow<List<ExpenseEntity>> = db.expenseDao().getAllExpenses()
     val employees: Flow<List<EmployeeEntity>> = db.employeeDao().getAllEmployees()
     val salaries: Flow<List<SalaryPaymentEntity>> = db.salaryDao().getAllSalaries()
-
-    // Product Operations
-    val products: Flow<List<ProductEntity>> = db.productDao().getAllProducts()
-    suspend fun addProduct(product: ProductEntity): Long = db.productDao().insertProduct(product)
-    suspend fun updateProduct(product: ProductEntity) = db.productDao().updateProduct(product)
-    suspend fun deleteProduct(product: ProductEntity) {
-        db.productDao().deleteProduct(product)
-    }
 
     // Customer Operations
     suspend fun addCustomer(customer: CustomerEntity): Long = db.customerDao().insertCustomer(customer)
@@ -67,6 +66,7 @@ class InventoryRepository(private val db: AppDatabase) {
                 outstandingBalance = newOutstanding
             )
         )
+        triggerNotificationSync()
         return true
     }
 
@@ -94,20 +94,6 @@ class InventoryRepository(private val db: AppDatabase) {
 
         val taxInvoiceNo = "TX-${(1000000..9999999).random()}-${('A'..'Z').random()}"
         val taxIdStr = "TX-${(100000..999999).random()}-${('A'..'Z').random()}"
-
-        // PRE-CHECK STOCK
-        for (item in items) {
-            if (item.productId > 0) {
-                val product = db.productDao().getProductById(item.productId)
-                if (product != null) {
-                    if (product.currentStock < item.quantity) {
-                        return Result.failure(
-                            IllegalStateException("Insufficient stock for product: ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}")
-                        )
-                    }
-                }
-            }
-        }
 
         val remainingBalance = (grandTotal - paidAmount).coerceAtLeast(0.0)
         val paymentStatus = when {
@@ -153,17 +139,7 @@ class InventoryRepository(private val db: AppDatabase) {
             )
         }
 
-        // Update Stock
-        for (item in items) {
-            if (item.productId > 0) {
-                val product = db.productDao().getProductById(item.productId)
-                if (product != null) {
-                    val newStock = (product.currentStock - item.quantity).coerceAtLeast(0)
-                    db.productDao().updateProduct(product.copy(currentStock = newStock))
-                }
-            }
-        }
-
+        triggerNotificationSync()
         return Result.success(insertedSale)
     }
 
@@ -184,6 +160,7 @@ class InventoryRepository(private val db: AppDatabase) {
             }
         }
         db.saleDao().deleteSale(sale)
+        triggerNotificationSync()
     }
 
     suspend fun updateSalePayment(sale: SaleOrderEntity, additionalAmount: Double): Result<SaleOrderEntity> {
@@ -227,13 +204,24 @@ class InventoryRepository(private val db: AppDatabase) {
             }
         }
 
+        triggerNotificationSync()
         return Result.success(updatedSale)
     }
 
     // Expenses
-    suspend fun addExpense(expense: ExpenseEntity): Long = db.expenseDao().insertExpense(expense)
-    suspend fun updateExpense(expense: ExpenseEntity) = db.expenseDao().updateExpense(expense)
-    suspend fun deleteExpense(expense: ExpenseEntity) = db.expenseDao().deleteExpense(expense)
+    suspend fun addExpense(expense: ExpenseEntity): Long {
+        val id = db.expenseDao().insertExpense(expense)
+        triggerNotificationSync()
+        return id
+    }
+    suspend fun updateExpense(expense: ExpenseEntity) {
+        db.expenseDao().updateExpense(expense)
+        triggerNotificationSync()
+    }
+    suspend fun deleteExpense(expense: ExpenseEntity) {
+        db.expenseDao().deleteExpense(expense)
+        triggerNotificationSync()
+    }
 
     // Employees & Payroll
     suspend fun addEmployee(employee: EmployeeEntity): Long = db.employeeDao().insertEmployee(employee)
@@ -262,18 +250,27 @@ class InventoryRepository(private val db: AppDatabase) {
                 )
             )
         }
+        triggerNotificationSync()
         return id
     }
 
-    suspend fun updateSalary(salary: SalaryPaymentEntity) = db.salaryDao().updateSalary(salary)
-    suspend fun deleteSalary(salary: SalaryPaymentEntity) = db.salaryDao().deleteSalary(salary)
+    suspend fun updateSalary(salary: SalaryPaymentEntity) {
+        db.salaryDao().updateSalary(salary)
+        triggerNotificationSync()
+    }
+    suspend fun deleteSalary(salary: SalaryPaymentEntity) {
+        db.salaryDao().deleteSalary(salary)
+        triggerNotificationSync()
+    }
 
     suspend fun clearAllData() {
         db.clearAllTables()
+        triggerNotificationSync()
     }
 
     suspend fun resetAndReseedData() {
         db.clearAllTables()
+        triggerNotificationSync()
     }
 
     suspend fun seedInitialDataIfEmpty() {

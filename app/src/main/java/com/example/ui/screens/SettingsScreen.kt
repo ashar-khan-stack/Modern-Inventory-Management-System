@@ -1007,7 +1007,7 @@ fun SettingsScreen(
             onDismissRequest = { showDeleteProfileDialog = false },
             title = { Text("Delete Business Profile?") },
             text = {
-                Text("Are you sure you want to delete this business/company profile?\n\nNote: This will only remove your profile details. Your customers, products, sales, purchases, expenses, employees, and all other business data will NOT be deleted.")
+                Text("Are you sure you want to delete this business/company profile?\n\nNote: This will only remove your profile details. Your customers, sales, purchases, expenses, employees, and all other business data will NOT be deleted.")
             },
             confirmButton = {
                 Button(

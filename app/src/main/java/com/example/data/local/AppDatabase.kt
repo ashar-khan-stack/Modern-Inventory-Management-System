@@ -11,19 +11,17 @@ import org.json.JSONObject
 @Database(
     entities = [
         CustomerEntity::class,
-        ProductEntity::class,
         SaleOrderEntity::class,
         ExpenseEntity::class,
         EmployeeEntity::class,
         SalaryPaymentEntity::class,
         UserEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun customerDao(): CustomerDao
-    abstract fun productDao(): ProductDao
     abstract fun saleDao(): SaleDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun employeeDao(): EmployeeDao
@@ -34,7 +32,12 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        @Volatile
+        var appContext: Context? = null
+            private set
+
         fun getInstance(context: Context): AppDatabase {
+            appContext = context.applicationContext
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
@@ -56,7 +59,6 @@ object OrderJsonParser {
                 val desc = item.description.ifBlank { item.productName }
                 put("description", desc)
                 put("productName", item.productName.ifBlank { desc })
-                put("productId", item.productId)
                 put("sku", item.sku)
                 put("unitPrice", item.unitPrice)
                 put("quantity", item.quantity)
@@ -82,7 +84,6 @@ object OrderJsonParser {
                     SaleOrderItem(
                         description = desc,
                         productName = name,
-                        productId = obj.optLong("productId"),
                         sku = obj.optString("sku"),
                         unitPrice = obj.optDouble("unitPrice", 0.0),
                         quantity = obj.optInt("quantity", 1),

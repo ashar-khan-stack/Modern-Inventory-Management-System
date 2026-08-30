@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.CustomerEntity
-import com.example.data.model.ProductEntity
 import com.example.data.model.SaleOrderEntity
 import com.example.data.model.SaleOrderItem
 import com.example.ui.components.CustomerFormDialog
@@ -36,7 +35,6 @@ import com.example.ui.theme.*
 @Composable
 fun NewSaleScreen(
     customers: List<CustomerEntity>,
-    products: List<ProductEntity>,
     onProcessSale: (
         customer: CustomerEntity,
         items: List<SaleOrderItem>,
@@ -55,7 +53,7 @@ fun NewSaleScreen(
     var showCreateCustomerDialog by remember { mutableStateOf(false) }
 
     var cartItems by remember { mutableStateOf(listOf<SaleOrderItem>()) }
-    var showProductPicker by remember { mutableStateOf(false) }
+    var showAddItemDialog by remember { mutableStateOf(false) }
 
     var discountAmountText by remember { mutableStateOf("") }
     var taxRateText by remember { mutableStateOf("") }
@@ -98,13 +96,13 @@ fun NewSaleScreen(
                     CartHeaderSection(
                         cartItemCount = cartItems.sumOf { it.quantity },
                         onClearCart = { cartItems = emptyList() },
-                        onOpenProductPicker = { showProductPicker = true }
+                        onOpenProductPicker = { showAddItemDialog = true }
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (cartItems.isEmpty()) {
-                        EmptyCartPlaceholder(onAddProducts = { showProductPicker = true })
+                        EmptyCartPlaceholder(onAddProducts = { showAddItemDialog = true })
                     } else {
                         LazyColumn(
                             modifier = Modifier
@@ -112,12 +110,12 @@ fun NewSaleScreen(
                                 .fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(cartItems, key = { it.productId }) { item ->
+                            items(cartItems, key = { it.productName }) { item ->
                                 CartItemCard(
                                     item = item,
                                     onIncrease = {
                                         cartItems = cartItems.map {
-                                            if (it.productId == item.productId) {
+                                            if (it.productName == item.productName) {
                                                 val newQ = it.quantity + 1
                                                 it.copy(quantity = newQ, subtotal = newQ * it.unitPrice)
                                             } else it
@@ -126,17 +124,17 @@ fun NewSaleScreen(
                                     onDecrease = {
                                         if (item.quantity > 1) {
                                             cartItems = cartItems.map {
-                                                if (it.productId == item.productId) {
+                                                if (it.productName == item.productName) {
                                                     val newQ = it.quantity - 1
                                                     it.copy(quantity = newQ, subtotal = newQ * it.unitPrice)
                                                 } else it
                                             }
                                         } else {
-                                            cartItems = cartItems.filter { it.productId != item.productId }
+                                            cartItems = cartItems.filter { it.productName != item.productName }
                                         }
                                     },
                                     onRemove = {
-                                        cartItems = cartItems.filter { it.productId != item.productId }
+                                        cartItems = cartItems.filter { it.productName != item.productName }
                                     }
                                 )
                             }
@@ -240,13 +238,13 @@ fun NewSaleScreen(
                 CartHeaderSection(
                     cartItemCount = cartItems.sumOf { it.quantity },
                     onClearCart = { cartItems = emptyList() },
-                    onOpenProductPicker = { showProductPicker = true }
+                    onOpenProductPicker = { showAddItemDialog = true }
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 if (cartItems.isEmpty()) {
-                    EmptyCartPlaceholder(onAddProducts = { showProductPicker = true })
+                    EmptyCartPlaceholder(onAddProducts = { showAddItemDialog = true })
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         cartItems.forEach { item ->
@@ -254,7 +252,7 @@ fun NewSaleScreen(
                                 item = item,
                                 onIncrease = {
                                     cartItems = cartItems.map {
-                                        if (it.productId == item.productId) {
+                                        if (it.productName == item.productName) {
                                             val newQ = it.quantity + 1
                                             it.copy(quantity = newQ, subtotal = newQ * it.unitPrice)
                                         } else it
@@ -263,17 +261,17 @@ fun NewSaleScreen(
                                 onDecrease = {
                                     if (item.quantity > 1) {
                                         cartItems = cartItems.map {
-                                            if (it.productId == item.productId) {
+                                            if (it.productName == item.productName) {
                                                 val newQ = it.quantity - 1
                                                 it.copy(quantity = newQ, subtotal = newQ * it.unitPrice)
                                             } else it
                                         }
                                     } else {
-                                        cartItems = cartItems.filter { it.productId != item.productId }
+                                        cartItems = cartItems.filter { it.productName != item.productName }
                                     }
                                 },
                                 onRemove = {
-                                    cartItems = cartItems.filter { it.productId != item.productId }
+                                    cartItems = cartItems.filter { it.productName != item.productName }
                                 }
                             )
                         }
@@ -360,32 +358,15 @@ fun NewSaleScreen(
     }
 
     // Product Picker Dialog
-    if (showProductPicker) {
-        ProductSearchPickerDialog(
-            products = products,
-            onDismiss = { showProductPicker = false },
-            onProductSelected = { prod, qty ->
-                val existing = cartItems.find { it.productId == prod.id }
-                if (existing != null) {
-                    cartItems = cartItems.map {
-                        if (it.productId == prod.id) {
-                            val newQ = it.quantity + qty
-                            it.copy(quantity = newQ, subtotal = newQ * it.unitPrice)
-                        } else it
-                    }
-                } else {
-                    cartItems = cartItems + SaleOrderItem(
-                        description = prod.name,
-                        productName = prod.name,
-                        productId = prod.id,
-                        sku = prod.sku,
-                        unitPrice = prod.sellingPrice,
-                        quantity = qty,
-                        subtotal = prod.sellingPrice * qty,
-                        imageUrl = prod.imageUrl
-                    )
-                }
-                showProductPicker = false
+    if (showAddItemDialog) {
+        AddSaleItemDialog(
+            onDismiss = { showAddItemDialog = false },
+            onProductSelected = { newItem ->
+                // Since productId is 0L, use UUID or index for identity if needed, 
+                // but since we allow custom items, we just add it to the list.
+                // We'll give it a fake productId just so LazyColumn key works, or just don't rely on productId.
+                cartItems = cartItems + newItem
+                showAddItemDialog = false
             }
         )
     }
@@ -585,7 +566,7 @@ private fun EmptyCartPlaceholder(onAddProducts: () -> Unit) {
             ) {
                 Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Browse Inventory")
+                Text("Add Custom Item")
             }
         }
     }
@@ -610,6 +591,17 @@ private fun CartItemCard(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (item.imageUrl.isNotBlank() && java.io.File(item.imageUrl).exists()) {
+                coil.compose.AsyncImage(
+                    model = java.io.File(item.imageUrl),
+                    contentDescription = item.productName,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.productName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                 if (item.sku.isNotBlank()) {
@@ -913,120 +905,138 @@ private fun SummaryRow(
 }
 
 @Composable
-private fun ProductSearchPickerDialog(
-    products: List<ProductEntity>,
+private fun AddSaleItemDialog(
     onDismiss: () -> Unit,
-    onProductSelected: (ProductEntity, Int) -> Unit
+    onProductSelected: (SaleOrderItem) -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    val filtered = remember(products, searchQuery) {
-        if (searchQuery.isBlank()) products
-        else products.filter {
-            it.name.contains(searchQuery.trim(), ignoreCase = true) ||
-                    it.sku.contains(searchQuery.trim(), ignoreCase = true) ||
-                    it.category.contains(searchQuery.trim(), ignoreCase = true)
+    var productName by remember { mutableStateOf("") }
+    var sku by remember { mutableStateOf("") }
+    var sellingCostText by remember { mutableStateOf("") }
+    var quantity by remember { mutableIntStateOf(1) }
+    var imageUrl by remember { mutableStateOf("") }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            val savedPath = com.example.ui.viewmodel.InventoryViewModel.saveImageUriToAppStorage(context, uri)
+            imageUrl = savedPath
         }
     }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.85f),
+            modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Select Product", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Add Sale Item", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                // Image Upload
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { launcher.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (imageUrl.isNotBlank()) {
+                        coil.compose.AsyncImage(
+                            model = java.io.File(imageUrl),
+                            contentDescription = "Selected Image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(48.dp), tint = AppTextSecondary)
+                            Text("Upload Image", color = AppTextSecondary)
+                        }
+                    }
+                }
 
                 OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search by name, SKU, category...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    value = productName,
+                    onValueChange = { productName = it },
+                    label = { Text("Product Name *") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = sku,
+                    onValueChange = { sku = it },
+                    label = { Text("SKU Code") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
 
-                if (filtered.isEmpty()) {
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("No products found", color = AppTextSecondary)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(filtered, key = { it.id }) { prod ->
-                            var qty by remember { mutableIntStateOf(1) }
-                            Card(
-                                shape = RoundedCornerShape(10.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(prod.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(
-                                            "Stock: ${prod.currentStock} units • Price: Rs. ${"%,.0f".format(prod.sellingPrice)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = AppTextSecondary
-                                        )
-                                    }
+                OutlinedTextField(
+                    value = sellingCostText,
+                    onValueChange = { sellingCostText = it },
+                    label = { Text("Selling Cost *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
 
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = MaterialTheme.colorScheme.surface
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                IconButton(onClick = { if (qty > 1) qty-- }, modifier = Modifier.size(28.dp)) {
-                                                    Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(14.dp))
-                                                }
-                                                Text("$qty", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp))
-                                                IconButton(onClick = { qty++ }, modifier = Modifier.size(28.dp)) {
-                                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                                                }
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Button(
-                                            onClick = { onProductSelected(prod, qty) },
-                                            shape = RoundedCornerShape(8.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                        ) {
-                                            Text("Add")
-                                        }
-                                    }
-                                }
-                            }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text("Quantity:", fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { if (quantity > 1) quantity-- }) {
+                            Icon(Icons.Default.Remove, contentDescription = "Decrease")
+                        }
+                        Text("$quantity", fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { quantity++ }) {
+                            Icon(Icons.Default.Add, contentDescription = "Increase")
                         }
                     }
+                }
+
+                Button(
+                    onClick = {
+                        val cost = sellingCostText.toDoubleOrNull() ?: 0.0
+                        if (productName.isNotBlank() && cost > 0.0) {
+                            val item = SaleOrderItem(
+                                description = productName,
+                                productName = productName,
+                                sku = sku,
+                                unitPrice = cost,
+                                quantity = quantity,
+                                subtotal = cost * quantity,
+                                imageUrl = imageUrl
+                            )
+                            onProductSelected(item)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = productName.isNotBlank() && (sellingCostText.toDoubleOrNull() ?: 0.0) > 0.0
+                ) {
+                    Text("Add Item")
                 }
             }
         }
     }
 }
+
 
 @Composable
 private fun CustomerPickerDialog(

@@ -20,26 +20,9 @@ data class CustomerEntity(
     val status: String = "Active"
 )
 
-@Entity(tableName = "products")
-data class ProductEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
-    val name: String,
-    val sku: String,
-    val category: String,
-    val purchasePrice: Double,
-    val sellingPrice: Double,
-    val currentStock: Int,
-    val minStock: Int = 0,
-    val imageUrl: String = "",
-    val description: String = "",
-    val createdAt: Long = System.currentTimeMillis()
-)
-
 data class SaleOrderItem(
     val description: String = "",
     val productName: String = description,
-    val productId: Long = 0L,
     val sku: String = "",
     val unitPrice: Double = 0.0,
     val quantity: Int = 1,

@@ -147,7 +147,7 @@ fun PurchasesScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (searchQuery.isBlank()) "Create purchase entries to manage vendor deliveries and product stock." else "Try modifying your search text.",
+                        text = if (searchQuery.isBlank()) "Create purchase entries to manage vendor deliveries and procurement stock." else "Try modifying your search text.",
                         style = MaterialTheme.typography.bodySmall.copy(color = AppTextSecondary)
                     )
                 }
