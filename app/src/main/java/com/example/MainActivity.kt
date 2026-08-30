@@ -230,12 +230,7 @@ fun MainApp(
 
     val context = LocalContext.current
     LaunchedEffect(Unit) {
-        if (com.example.BuildConfig.DEBUG) {
-            com.example.ui.util.AppStartupDiagnostics.runStartupDiagnostics(com.example.data.local.AppDatabase.getInstance(context))
-            com.example.ui.util.DebugNavigationLogger.logScreenState("Startup", "Diagnostics completed.")
-        }
         com.example.ui.util.OutstandingPaymentNotificationManager.syncOutstandingNotifications(context)
-        com.example.ui.util.OutstandingPaymentScheduler.schedulePeriodicCheck(context)
         com.example.ui.util.OutstandingPaymentNotificationWorker.scheduleWork(context)
     }
 

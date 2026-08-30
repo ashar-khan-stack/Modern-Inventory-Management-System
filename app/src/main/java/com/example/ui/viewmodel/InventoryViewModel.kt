@@ -232,17 +232,51 @@ class InventoryViewModel(private val db: AppDatabase) : ViewModel() {
     companion object {
         fun saveImageUriToAppStorage(context: android.content.Context, uri: android.net.Uri, oldPath: String? = null): String {
             return try {
-                val inputStream = context.contentResolver.openInputStream(uri) ?: return uri.toString()
                 val imagesDir = java.io.File(context.filesDir, "product_images")
                 if (!imagesDir.exists()) {
                     imagesDir.mkdirs()
                 }
                 val fileName = "img_${System.currentTimeMillis()}_${(1000..9999).random()}.jpg"
                 val file = java.io.File(imagesDir, fileName)
-                file.outputStream().use { output ->
-                    inputStream.copyTo(output)
+
+                // First decode bounds to check image dimensions
+                val options = android.graphics.BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
                 }
-                file.absolutePath
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    android.graphics.BitmapFactory.decodeStream(stream, null, options)
+                }
+
+                // Calculate sample size for max 1024px dimension
+                var sampleSize = 1
+                val maxDim = maxOf(options.outWidth, options.outHeight)
+                if (maxDim > 1024) {
+                    sampleSize = Math.round(maxDim.toFloat() / 1024f)
+                }
+
+                // Decode downsampled bitmap
+                val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                }
+                val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    android.graphics.BitmapFactory.decodeStream(stream, null, decodeOptions)
+                }
+
+                if (bitmap != null) {
+                    file.outputStream().use { output ->
+                        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, output)
+                    }
+                    bitmap.recycle()
+                    file.absolutePath
+                } else {
+                    // Fallback to direct stream copy if bitmap decoding failed
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        file.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    file.absolutePath
+                }
             } catch (e: Exception) {
                 uri.toString()
             }

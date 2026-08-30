@@ -192,10 +192,12 @@ object InvoicePdfGenerator {
                 val imgFile = File(item.imageUrl)
                 if (imgFile.exists()) {
                     try {
-                        val bmp = BitmapFactory.decodeFile(imgFile.absolutePath)
+                        val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
+                        val bmp = BitmapFactory.decodeFile(imgFile.absolutePath, opts)
                         if (bmp != null) {
                             val destRect = RectF(textStartX, rowStartY, textStartX + 24f, rowStartY + 24f)
                             canvas.drawBitmap(bmp, null, destRect, null)
+                            bmp.recycle()
                             textStartX += 30f
                         }
                     } catch (e: Exception) {

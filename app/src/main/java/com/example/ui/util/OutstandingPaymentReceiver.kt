@@ -7,7 +7,6 @@ import android.content.Intent
 class OutstandingPaymentReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         OutstandingPaymentNotificationManager.syncOutstandingNotifications(context)
-        OutstandingPaymentScheduler.schedulePeriodicCheck(context)
         OutstandingPaymentNotificationWorker.scheduleWork(context)
     }
 }
