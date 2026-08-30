@@ -51,6 +51,16 @@ fun InvoiceScreen(
     val context = LocalContext.current
     var isThermalReceiptMode by remember { mutableStateOf(false) }
 
+    val storagePermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(context, "Storage access granted! Tap Save PDF again to save.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Storage access denied. Cannot save PDF.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     if (sale == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -154,13 +164,27 @@ fun InvoiceScreen(
 
                         OutlinedButton(
                             onClick = {
-                                InvoicePdfGenerator.downloadAndOpenPdf(
-                                    context = context,
-                                    sale = sale,
-                                    items = items,
-                                    formattedDate = formattedDate,
-                                    isThermal = isThermalReceiptMode
-                                )
+                                val hasStorageAccess = if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.S_V2) {
+                                    androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context,
+                                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                } else {
+                                    true
+                                }
+
+                                if (!hasStorageAccess) {
+                                    Toast.makeText(context, "Storage permission is required to save PDF on this version of Android.", Toast.LENGTH_LONG).show()
+                                    storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                } else {
+                                    InvoicePdfGenerator.downloadAndOpenPdf(
+                                        context = context,
+                                        sale = sale,
+                                        items = items,
+                                        formattedDate = formattedDate,
+                                        isThermal = isThermalReceiptMode
+                                    )
+                                }
                             },
                             modifier = Modifier.weight(1f).testTag("download_invoice_pdf_button")
                         ) {

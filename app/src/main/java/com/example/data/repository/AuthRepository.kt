@@ -276,6 +276,20 @@ class AuthRepository(private val context: Context, private val db: AppDatabase) 
         return item.answerHash == calculatedHash
     }
 
+    fun verifySecurityAnswers(user: UserEntity, userAnswers: List<String>): Boolean {
+        val items = com.example.data.model.SecurityQuestionParser.jsonToList(user.securityQuestionsJson)
+        if (items.isEmpty()) return false
+        if (userAnswers.size != items.size) return false
+        for (i in items.indices) {
+            val cleanAnswer = userAnswers[i].trim().lowercase()
+            val calculatedHash = hashPassword(cleanAnswer, user.salt)
+            if (calculatedHash != items[i].answerHash) {
+                return false
+            }
+        }
+        return true
+    }
+
     suspend fun resetPassword(email: String, newPassword: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val cleanEmail = email.trim().lowercase()

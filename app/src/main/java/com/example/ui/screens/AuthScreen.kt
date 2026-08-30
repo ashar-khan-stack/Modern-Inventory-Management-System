@@ -35,6 +35,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.UserSession
 import com.example.ui.theme.*
@@ -1349,73 +1351,152 @@ fun AuthScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        Text(
-                            text = "Security Questions",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Set all 5 questions to help recover your account if you forget your password.",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        if (securityQuestionsTouched && !isQuestionsUnique) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = DangerRedContainer,
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 12.dp)
+                                    .padding(16.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.ErrorOutline,
-                                        contentDescription = null,
-                                        tint = DangerRed,
-                                        modifier = Modifier.size(18.dp)
+                                Text(
+                                    text = "Security Questions",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Please select 5 different security questions. Duplicate question selected.",
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = DangerRed,
-                                            fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Set all 5 questions to help recover your account if you forget your password.",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                if (securityQuestionsTouched && !isQuestionsUnique) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = DangerRedContainer,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.ErrorOutline,
+                                                contentDescription = null,
+                                                tint = DangerRed,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Please select 5 different security questions. Duplicate question selected.",
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    color = DangerRed,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+
+                                val questionsState = listOf(
+                                    Triple(q0, ans0, { newQ: String -> q0 = newQ } to { newA: String -> ans0 = newA }),
+                                    Triple(q1, ans1, { newQ: String -> q1 = newQ } to { newA: String -> ans1 = newA }),
+                                    Triple(q2, ans2, { newQ: String -> q2 = newQ } to { newA: String -> ans2 = newA }),
+                                    Triple(q3, ans3, { newQ: String -> q3 = newQ } to { newA: String -> ans3 = newA }),
+                                    Triple(q4, ans4, { newQ: String -> q4 = newQ } to { newA: String -> ans4 = newA })
+                                )
+
+                                questionsState.forEachIndexed { index, (selectedQ, answer, handlers) ->
+                                    val (onQChange, onAChange) = handlers
+                                    if (index > 0) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                            modifier = Modifier.padding(bottom = 12.dp)
                                         )
-                                    )
+                                    }
+
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Text(
+                                            text = "Question ${index + 1}",
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = BrandBluePrimary
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        var expanded by remember { mutableStateOf(false) }
+                                        ExposedDropdownMenuBox(
+                                            expanded = expanded,
+                                            onExpandedChange = { expanded = !expanded },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            OutlinedTextField(
+                                                value = selectedQ,
+                                                onValueChange = {},
+                                                readOnly = true,
+                                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                                shape = RoundedCornerShape(10.dp),
+                                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                                modifier = Modifier
+                                                    .menuAnchor()
+                                                    .fillMaxWidth()
+                                                    .testTag("reg_security_question_dropdown_$index")
+                                            )
+
+                                            ExposedDropdownMenu(
+                                                expanded = expanded,
+                                                onDismissRequest = { expanded = false }
+                                            ) {
+                                                questionsList.forEach { question ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(question, style = MaterialTheme.typography.bodyMedium) },
+                                                        onClick = {
+                                                            onQChange(question)
+                                                            securityQuestionsTouched = true
+                                                            expanded = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        OutlinedTextField(
+                                            value = answer,
+                                            onValueChange = {
+                                                onAChange(it)
+                                                securityQuestionsTouched = true
+                                            },
+                                            placeholder = { Text("Enter your answer") },
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(10.dp),
+                                            isError = securityQuestionsTouched && answer.trim().isEmpty(),
+                                            supportingText = if (securityQuestionsTouched && answer.trim().isEmpty()) {
+                                                { Text("Answer is required", color = MaterialTheme.colorScheme.error) }
+                                            } else null,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("reg_security_answer_input_$index")
+                                        )
+                                    }
                                 }
                             }
-                        }
-
-                        val questionsState = listOf(
-                            Triple(q0, ans0, { newQ: String -> q0 = newQ } to { newA: String -> ans0 = newA }),
-                            Triple(q1, ans1, { newQ: String -> q1 = newQ } to { newA: String -> ans1 = newA }),
-                            Triple(q2, ans2, { newQ: String -> q2 = newQ } to { newA: String -> ans2 = newA }),
-                            Triple(q3, ans3, { newQ: String -> q3 = newQ } to { newA: String -> ans3 = newA }),
-                            Triple(q4, ans4, { newQ: String -> q4 = newQ } to { newA: String -> ans4 = newA })
-                        )
-
-                        questionsState.forEachIndexed { index, (selectedQ, answer, handlers) ->
-                            val (onQChange, onAChange) = handlers
-                            SecurityQuestionInputBlock(
-                                index = index,
-                                selectedQuestion = selectedQ,
-                                allQuestions = questionsList,
-                                answer = answer,
-                                onQuestionSelected = { newQ -> onQChange(newQ); securityQuestionsTouched = true },
-                                onAnswerChanged = { newA -> onAChange(newA); securityQuestionsTouched = true },
-                                isTouched = securityQuestionsTouched
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
                         }
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -1672,9 +1753,9 @@ fun ForgotPasswordDialog(
 
     var identifierInput by remember { mutableStateOf(initialEmail) }
     var foundUser by remember { mutableStateOf<com.example.data.model.UserEntity?>(null) }
-    var selectedQuestionItem by remember { mutableStateOf<com.example.data.model.SecurityQuestionItem?>(null) }
+    var registeredQuestions = remember { mutableStateOf<List<com.example.data.model.SecurityQuestionItem>>(emptyList()) }
+    val forgotAnswerInputs = remember { mutableStateListOf<String>() }
 
-    var answerInput by remember { mutableStateOf("") }
     var failedAttemptsCount by remember { mutableIntStateOf(0) }
     var isAttemptsBlocked by remember { mutableStateOf(false) }
 
@@ -1696,42 +1777,55 @@ fun ForgotPasswordDialog(
     val isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasDigit && hasSpecial
     val isPasswordMatch = newPassword.isNotEmpty() && newPassword == confirmNewPassword
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(BrandBluePrimaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (currentStep == 4) Icons.Default.CheckCircle else Icons.Default.LockReset,
-                        contentDescription = null,
-                        tint = if (currentStep == 4) SuccessGreen else BrandBluePrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = when (currentStep) {
-                        1 -> "Account Recovery"
-                        2 -> "Security Question"
-                        3 -> "Create New Password"
-                        else -> "Password Changed!"
-                    },
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-            }
-        },
-        text = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 440.dp)
+                .imePadding()
+                .wrapContentHeight()
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
+                    .padding(24.dp)
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(BrandBluePrimaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (currentStep == 4) Icons.Default.CheckCircle else Icons.Default.LockReset,
+                            contentDescription = null,
+                            tint = if (currentStep == 4) SuccessGreen else BrandBluePrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = when (currentStep) {
+                            1 -> "Account Recovery"
+                            2 -> "Security Question"
+                            3 -> "Create New Password"
+                            else -> "Password Changed!"
+                        },
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 if (dialogErrorMessage != null) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
@@ -1779,60 +1873,84 @@ fun ForgotPasswordDialog(
                     }
                     2 -> {
                         Text(
-                            text = "Answer the security question configured for your account:",
+                            text = "Answer all registered security questions configured for your account:",
                             style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Card(
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                             ),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
                                 Text(
-                                    text = "Security Question",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = BrandBluePrimary,
-                                        fontWeight = FontWeight.Bold
+                                    text = "Security Questions",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = selectedQuestionItem?.questionText ?: "",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    ),
-                                    modifier = Modifier.testTag("forgot_question_text")
+                                    text = "Please provide answers to all ${registeredQuestions.value.size} security questions.",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 )
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                registeredQuestions.value.forEachIndexed { index, qItem ->
+                                    if (index > 0) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                            modifier = Modifier.padding(bottom = 12.dp)
+                                        )
+                                    }
+
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Text(
+                                            text = "Question ${index + 1}: ${qItem.questionText}",
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            ),
+                                            modifier = Modifier.testTag("forgot_question_text_$index")
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        OutlinedTextField(
+                                            value = forgotAnswerInputs.getOrElse(index) { "" },
+                                            onValueChange = { newAns ->
+                                                if (index < forgotAnswerInputs.size) {
+                                                    forgotAnswerInputs[index] = newAns
+                                                }
+                                                dialogErrorMessage = null
+                                            },
+                                            placeholder = { Text("Enter your answer") },
+                                            singleLine = true,
+                                            enabled = !isAttemptsBlocked,
+                                            shape = RoundedCornerShape(10.dp),
+                                            isError = dialogErrorMessage != null && forgotAnswerInputs.getOrElse(index) { "" }.trim().isEmpty(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("forgot_answer_input_$index")
+                                        )
+                                    }
+                                }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        OutlinedTextField(
-                            value = answerInput,
-                            onValueChange = {
-                                answerInput = it
-                                dialogErrorMessage = null
-                            },
-                            label = { Text("Your Answer") },
-                            placeholder = { Text("Enter answer") },
-                            leadingIcon = { Icon(Icons.Default.Help, contentDescription = null) },
-                            singleLine = true,
-                            enabled = !isAttemptsBlocked,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("forgot_answer_input")
-                        )
-
                         if (failedAttemptsCount > 0 && !isAttemptsBlocked) {
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "Attempts remaining: ${5 - failedAttemptsCount}",
                                 style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.error)
@@ -1945,155 +2063,166 @@ fun ForgotPasswordDialog(
                         }
                     }
                 }
-            }
-        },
-        confirmButton = {
-            when (currentStep) {
-                1 -> {
-                    Button(
-                        onClick = {
-                            val clean = identifierInput.trim().lowercase()
-                            if (clean.isBlank()) {
-                                dialogErrorMessage = "Please enter your email."
-                                return@Button
-                            }
-                            if (!emailRegex.matches(clean)) {
-                                dialogErrorMessage = "Please enter a valid email address."
-                                return@Button
-                            }
 
-                            isResetLoading = true
-                            dialogErrorMessage = null
-                            scope.launch {
-                                val result = authRepository.findUserByEmail(clean)
-                                isResetLoading = false
-                                if (result.isSuccess) {
-                                    val user = result.getOrThrow()
-                                    val questions = com.example.data.model.SecurityQuestionParser.jsonToList(user.securityQuestionsJson)
-                                    if (questions.isEmpty()) {
-                                        dialogErrorMessage = "Account recovery is not configured for this account. Please log in with your password."
-                                    } else {
-                                        foundUser = user
-                                        selectedQuestionItem = questions.random()
-                                        failedAttemptsCount = 0
-                                        isAttemptsBlocked = false
-                                        answerInput = ""
-                                        currentStep = 2
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (currentStep < 4) {
+                        TextButton(onClick = onDismiss, modifier = Modifier.padding(end = 8.dp)) {
+                            Text("Cancel")
+                        }
+                    }
+
+                    when (currentStep) {
+                        1 -> {
+                            Button(
+                                onClick = {
+                                    val clean = identifierInput.trim().lowercase()
+                                    if (clean.isBlank()) {
+                                        dialogErrorMessage = "Please enter your email."
+                                        return@Button
                                     }
+                                    if (!emailRegex.matches(clean)) {
+                                        dialogErrorMessage = "Please enter a valid email address."
+                                        return@Button
+                                    }
+
+                                    isResetLoading = true
+                                    dialogErrorMessage = null
+                                    scope.launch {
+                                        val result = authRepository.findUserByEmail(clean)
+                                        isResetLoading = false
+                                        if (result.isSuccess) {
+                                            val user = result.getOrThrow()
+                                            val questions = com.example.data.model.SecurityQuestionParser.jsonToList(user.securityQuestionsJson)
+                                            if (questions.isEmpty()) {
+                                                dialogErrorMessage = "Account recovery is not configured for this account. Please log in with your password."
+                                            } else {
+                                                foundUser = user
+                                                registeredQuestions.value = questions
+                                                 forgotAnswerInputs.clear()
+                                                 repeat(questions.size) { forgotAnswerInputs.add("") }
+                                                failedAttemptsCount = 0
+                                                isAttemptsBlocked = false
+                                                
+                                                currentStep = 2
+                                            }
+                                        } else {
+                                            dialogErrorMessage = result.exceptionOrNull()?.message ?: "Account not found."
+                                        }
+                                    }
+                                },
+                                enabled = !isResetLoading,
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.testTag("forgot_verify_email_button")
+                            ) {
+                                if (isResetLoading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                                 } else {
-                                    dialogErrorMessage = result.exceptionOrNull()?.message ?: "Account not found."
+                                    Text("Identify Account")
                                 }
                             }
-                        },
-                        enabled = !isResetLoading,
-                        colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
-                        modifier = Modifier.testTag("forgot_verify_email_button")
-                    ) {
-                        if (isResetLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                        } else {
-                            Text("Identify Account")
+                        }
+                        2 -> {
+                            Button(
+                                onClick = {
+                                    if (isAttemptsBlocked) {
+                                        dialogErrorMessage = "Maximum failed attempts reached. Recovery temporarily locked."
+                                        return@Button
+                                    }
+                                    if (forgotAnswerInputs.any { it.trim().isEmpty() }) {
+                                        dialogErrorMessage = "Please answer all security questions."
+                                        return@Button
+                                    }
+
+                                    val user = foundUser
+                                    if (user == null || registeredQuestions.value.isEmpty()) {
+                                        dialogErrorMessage = "An error occurred. Please restart the recovery process."
+                                        return@Button
+                                    }
+
+                                    val isCorrect = authRepository.verifySecurityAnswers(user, forgotAnswerInputs)
+                                    if (isCorrect) {
+                                        dialogErrorMessage = null
+                                        currentStep = 3
+                                    } else {
+                                        failedAttemptsCount++
+                                        if (failedAttemptsCount >= 5) {
+                                            isAttemptsBlocked = true
+                                            dialogErrorMessage = "One or more security answers are incorrect. Maximum failed attempts reached (5/5). Account recovery temporarily locked."
+                                        } else {
+                                            dialogErrorMessage = "One or more security answers are incorrect."
+                                        }
+                                    }
+                                },
+                                enabled = !isAttemptsBlocked && forgotAnswerInputs.all { it.trim().isNotEmpty() },
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.testTag("forgot_verify_answer_button")
+                            ) {
+                                Text("Verify Answers")
+                            }
+                        }
+                        3 -> {
+                            Button(
+                                onClick = {
+                                    if (!isPasswordValid) {
+                                        dialogErrorMessage = "Please ensure password meets all requirements."
+                                        return@Button
+                                    }
+                                    if (!isPasswordMatch) {
+                                        dialogErrorMessage = "Passwords do not match."
+                                        return@Button
+                                    }
+
+                                    val user = foundUser ?: return@Button
+                                    isResetLoading = true
+                                    dialogErrorMessage = null
+                                    scope.launch {
+                                        val result = authRepository.resetPassword(user.email, newPassword)
+                                        isResetLoading = false
+                                        if (result.isSuccess) {
+                                            currentStep = 4
+                                        } else {
+                                            dialogErrorMessage = result.exceptionOrNull()?.message ?: "Failed to reset password."
+                                        }
+                                    }
+                                },
+                                enabled = !isResetLoading && isPasswordValid && isPasswordMatch,
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.testTag("forgot_change_password_button")
+                            ) {
+                                if (isResetLoading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                                } else {
+                                    Text("Change Password")
+                                }
+                            }
+                        }
+                        4 -> {
+                            Button(
+                                onClick = {
+                                    val email = foundUser?.email ?: identifierInput
+                                    onPasswordResetSuccess(email)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.testTag("back_to_login_button")
+                            ) {
+                                Text("Back to Sign In")
+                            }
                         }
                     }
-                }
-                2 -> {
-                    Button(
-                        onClick = {
-                            if (isAttemptsBlocked) {
-                                dialogErrorMessage = "Maximum failed attempts reached. Recovery temporarily locked."
-                                return@Button
-                            }
-                            if (answerInput.trim().isEmpty()) {
-                                dialogErrorMessage = "Please enter an answer."
-                                return@Button
-                            }
-
-                            val user = foundUser
-                            val question = selectedQuestionItem
-                            if (user == null || question == null) {
-                                dialogErrorMessage = "An error occurred. Please restart the recovery process."
-                                return@Button
-                            }
-
-                            val isCorrect = authRepository.verifySecurityAnswer(user, question.questionText, answerInput)
-                            if (isCorrect) {
-                                dialogErrorMessage = null
-                                currentStep = 3
-                            } else {
-                                failedAttemptsCount++
-                                if (failedAttemptsCount >= 5) {
-                                    isAttemptsBlocked = true
-                                    dialogErrorMessage = "Incorrect answer. Maximum failed attempts reached (5/5). Account recovery temporarily locked. Please try again later."
-                                } else {
-                                    dialogErrorMessage = "Incorrect answer. Please try again."
-                                }
-                            }
-                        },
-                        enabled = !isAttemptsBlocked && answerInput.trim().isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
-                        modifier = Modifier.testTag("forgot_verify_answer_button")
-                    ) {
-                        Text("Verify Answer")
-                    }
-                }
-                3 -> {
-                    Button(
-                        onClick = {
-                            if (!isPasswordValid) {
-                                dialogErrorMessage = "Please ensure password meets all requirements."
-                                return@Button
-                            }
-                            if (!isPasswordMatch) {
-                                dialogErrorMessage = "Passwords do not match."
-                                return@Button
-                            }
-
-                            val user = foundUser ?: return@Button
-                            isResetLoading = true
-                            dialogErrorMessage = null
-                            scope.launch {
-                                val result = authRepository.resetPassword(user.email, newPassword)
-                                isResetLoading = false
-                                if (result.isSuccess) {
-                                    currentStep = 4
-                                } else {
-                                    dialogErrorMessage = result.exceptionOrNull()?.message ?: "Failed to reset password."
-                                }
-                            }
-                        },
-                        enabled = !isResetLoading && isPasswordValid && isPasswordMatch,
-                        colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
-                        modifier = Modifier.testTag("forgot_change_password_button")
-                    ) {
-                        if (isResetLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                        } else {
-                            Text("Change Password")
-                        }
-                    }
-                }
-                4 -> {
-                    Button(
-                        onClick = {
-                            val email = foundUser?.email ?: identifierInput
-                            onPasswordResetSuccess(email)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
-                        modifier = Modifier.testTag("back_to_login_button")
-                    ) {
-                        Text("Back to Sign In")
-                    }
-                }
-            }
-        },
-        dismissButton = {
-            if (currentStep < 4) {
-                TextButton(onClick = onDismiss) {
-                    Text("Cancel")
                 }
             }
         }
-    )
+    }
 }
 
 @Composable

@@ -94,6 +94,16 @@ fun SettingsScreen(
     val biometricStatus = remember { BiometricHelper.checkBiometricStatus(context) }
     val isBiometricCapable = biometricStatus == BiometricHelper.BiometricStatus.AVAILABLE
 
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(context, "Storage access granted! Tap your action button again to proceed.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Storage access denied.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // SAF Launchers
     val exportBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -393,8 +403,22 @@ fun SettingsScreen(
                 ) {
                     Button(
                         onClick = {
-                            val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
-                            exportBackupLauncher.launch("AppBackup_$timestamp.json")
+                            val hasStorageAccess = if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.S_V2) {
+                                androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            } else {
+                                true
+                            }
+
+                            if (!hasStorageAccess) {
+                                Toast.makeText(context, "Storage permission is required to save backups on this version of Android.", Toast.LENGTH_LONG).show()
+                                storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            } else {
+                                val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
+                                exportBackupLauncher.launch("AppBackup_$timestamp.json")
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BrandBluePrimary),
                         modifier = Modifier
@@ -408,7 +432,21 @@ fun SettingsScreen(
 
                     OutlinedButton(
                         onClick = {
-                            importBackupLauncher.launch(arrayOf("application/json", "text/*"))
+                            val hasStorageAccess = if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.S_V2) {
+                                androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            } else {
+                                true
+                            }
+
+                            if (!hasStorageAccess) {
+                                Toast.makeText(context, "Storage permission is required to read backups on this version of Android.", Toast.LENGTH_LONG).show()
+                                storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            } else {
+                                importBackupLauncher.launch(arrayOf("application/json", "text/*"))
+                            }
                         },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandTealTertiary),
                         modifier = Modifier
@@ -426,8 +464,22 @@ fun SettingsScreen(
                 // Export Financial Summary Action
                 OutlinedButton(
                     onClick = {
-                        val timestamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
-                        exportReportLauncher.launch("financial_summary_report_$timestamp.txt")
+                        val hasStorageAccess = if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.S_V2) {
+                            androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        } else {
+                            true
+                        }
+
+                        if (!hasStorageAccess) {
+                            Toast.makeText(context, "Storage permission is required to save reports on this version of Android.", Toast.LENGTH_LONG).show()
+                            storagePermissionLauncher.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        } else {
+                            val timestamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+                            exportReportLauncher.launch("financial_summary_report_$timestamp.txt")
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {

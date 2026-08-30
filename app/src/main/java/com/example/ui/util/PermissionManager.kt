@@ -30,6 +30,29 @@ class PermissionManager(private val activity: ComponentActivity) {
             notificationCallback?.invoke(isGranted)
         }
 
+    val cameraPermissionLauncher: ActivityResultLauncher<String> =
+        activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            sharedPrefs.edit().putBoolean("has_requested_camera", true).apply()
+            cameraCallback?.invoke(isGranted)
+        }
+
+    private var cameraCallback: ((Boolean) -> Unit)? = null
+
+    fun hasCameraPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            activity,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun shouldShowCameraRationale(): Boolean {
+        return !hasCameraPermission() && !sharedPrefs.getBoolean("has_requested_camera", false)
+    }
+
+    fun requestCameraPermission(onResult: (Boolean) -> Unit) {
+        cameraCallback = onResult
+        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
     fun hasStoragePermission(): Boolean {
         return if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
             ContextCompat.checkSelfPermission(

@@ -2,11 +2,11 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Modern Executive Enterprise SaaS Palette
-val BrandBluePrimary = Color(0xFF0284C7)
+// Modern Executive Enterprise SaaS Palette (Updated to Professional Emerald Green)
+val BrandBluePrimary = Color(0xFF059669)
 val BrandBlueOnPrimary = Color(0xFFFFFFFF)
-val BrandBluePrimaryContainer = Color(0xFFE0F2FE)
-val BrandBlueOnPrimaryContainer = Color(0xFF0369A1)
+val BrandBluePrimaryContainer = Color(0xFFD1FAE5)
+val BrandBlueOnPrimaryContainer = Color(0xFF064E3B)
 
 val BrandNavySecondary = Color(0xFF0F172A)
 val BrandNavyOnSecondary = Color(0xFFFFFFFF)

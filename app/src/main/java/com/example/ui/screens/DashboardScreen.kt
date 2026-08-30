@@ -35,11 +35,13 @@ fun DashboardScreen(
     sales: List<SaleOrderEntity>,
     expenses: List<ExpenseEntity>,
     customers: List<CustomerEntity>,
+    employees: List<EmployeeEntity> = emptyList(),
     salaryPayments: List<SalaryPaymentEntity> = emptyList(),
     summaryTotals: DashboardSummaryTotals? = null,
     currentSession: com.example.data.repository.UserSession? = null,
     onNavigateToSales: () -> Unit,
     onNavigateToExpenses: () -> Unit,
+    onNavigateToPeople: () -> Unit,
     onSelectInvoice: (SaleOrderEntity) -> Unit
 ) {
     val monthStart = remember {
@@ -475,6 +477,70 @@ fun DashboardScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // 5. PEOPLE & PARTNERS QUICK LINK
+        item {
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, AppOutlineLight),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToPeople() }
+                    .testTag("dashboard_people_card")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(BrandBluePrimary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.People,
+                                contentDescription = "People Directory",
+                                tint = BrandBluePrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "People Directory",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 17.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                            Text(
+                                text = "Manage ${customers.size} Customers & ${employees.size} Employees",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = AppTextSecondary,
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.ArrowForwardIos,
+                        contentDescription = "Navigate to People",
+                        tint = AppTextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }

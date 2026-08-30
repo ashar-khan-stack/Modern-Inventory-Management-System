@@ -154,7 +154,7 @@ fun StepProgressHeader(
 }
 
 @Composable
-fun MultiStepFormDialog(
+fun MultiStepFormScreen(
     title: String,
     currentStep: Int,
     totalSteps: Int,
@@ -167,9 +167,9 @@ fun MultiStepFormDialog(
     saveButtonText: String = "Save & Finish",
     content: @Composable (Int) -> Unit
 ) {
-    Dialog(
+    Box(
         onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        
     ) {
         Surface(
             modifier = Modifier
@@ -309,158 +309,6 @@ fun MultiStepFormDialog(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(saveButtonText)
                         }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun MultiStepFormScreen(
-    title: String,
-    currentStep: Int,
-    totalSteps: Int,
-    stepTitles: List<String>,
-    onDismissRequest: () -> Unit,
-    onBack: () -> Unit,
-    onNext: () -> Unit,
-    onSave: () -> Unit,
-    isNextEnabled: Boolean = true,
-    saveButtonText: String = "Save & Finish",
-    content: @Composable (Int) -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp)
-        ) {
-            // Form Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                IconButton(
-                    onClick = onDismissRequest,
-                    modifier = Modifier.testTag("close_screen_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close Form"
-                    )
-                }
-            }
-
-            // Step Progress Header
-            StepProgressHeader(
-                currentStep = currentStep,
-                totalSteps = totalSteps,
-                stepTitles = stepTitles
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
-
-            // Animated Step Body Content
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                AnimatedContent(
-                    targetState = currentStep,
-                    transitionSpec = {
-                        if (targetState > initialState) {
-                            (slideInHorizontally(animationSpec = tween(300)) { width -> width } + fadeIn()).togetherWith(
-                                slideOutHorizontally(animationSpec = tween(300)) { width -> -width } + fadeOut())
-                        } else {
-                            (slideInHorizontally(animationSpec = tween(300)) { width -> -width } + fadeIn()).togetherWith(
-                                slideOutHorizontally(animationSpec = tween(300)) { width -> width } + fadeOut())
-                        }
-                    },
-                    label = "MultiStepFormTransition"
-                ) { step ->
-                    content(step)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Bottom Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Back Button
-                if (currentStep > 1) {
-                    OutlinedButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("form_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back Step",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Back")
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = onDismissRequest,
-                        modifier = Modifier.testTag("form_cancel_button")
-                    ) {
-                        Text("Cancel")
-                    }
-                }
-
-                // Next / Submit Button
-                if (currentStep < totalSteps) {
-                    Button(
-                        onClick = onNext,
-                        enabled = isNextEnabled,
-                        modifier = Modifier.testTag("form_next_button")
-                    ) {
-                        Text("Next Step")
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Next Step",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                } else {
-                    Button(
-                        onClick = onSave,
-                        enabled = isNextEnabled,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.testTag("form_save_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Save",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(saveButtonText)
                     }
                 }
             }

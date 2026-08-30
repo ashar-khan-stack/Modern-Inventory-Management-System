@@ -11,17 +11,19 @@ import org.json.JSONObject
 @Database(
     entities = [
         CustomerEntity::class,
+        ProductEntity::class,
         SaleOrderEntity::class,
         ExpenseEntity::class,
         EmployeeEntity::class,
         SalaryPaymentEntity::class,
         UserEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun customerDao(): CustomerDao
+    abstract fun productDao(): ProductDao
     abstract fun saleDao(): SaleDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun employeeDao(): EmployeeDao

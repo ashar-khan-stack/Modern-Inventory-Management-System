@@ -8,6 +8,8 @@ import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.ThemePreferenceManager
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -118,11 +120,33 @@ object DatabaseExporter {
         }
         root.put("users", usersArray)
 
-        // 8. Business Profile Settings
+        // 8. Products Table
+        val products = db.productDao().getAllProductsList()
+        val productsArray = JSONArray()
+        products.forEach { p ->
+            val pJson = productToJson(p)
+            // Include image in backup as Base64 if it exists
+            if (p.imageUrl.isNotBlank()) {
+                val imgFile = File(p.imageUrl)
+                if (imgFile.exists()) {
+                    try {
+                        val bytes = imgFile.readBytes()
+                        val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
+                        pJson.put("imageBase64", base64)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+            productsArray.put(pJson)
+        }
+        root.put("products", productsArray)
+
+        // 9. Business Profile Settings
         val profile = profileManager.profile.value
         root.put("businessProfile", businessProfileToJson(profile))
 
-        // 9. Application Theme and System Preferences
+        // 10. Application Theme and System Preferences
         val settingsObj = JSONObject().apply {
             put("themeMode", themeManager.themeMode.value.name)
             put("currencySymbol", profile.currencySymbol)
@@ -242,9 +266,42 @@ object DatabaseExporter {
             }
 
             val parsedSalaries = mutableListOf<SalaryPaymentEntity>()
-            root.optJSONArray("salaries")?.let { arr ->
+            root.optJSONArray("salaryPayments")?.let { arr ->
                 for (i in 0 until arr.length()) {
                     parsedSalaries.add(jsonToSalary(arr.getJSONObject(i)))
+                }
+            }
+
+            val parsedProducts = mutableListOf<ProductEntity>()
+            val productImagesMap = mutableMapOf<Long, String>() // Map old ID or SKU to new restored path
+            root.optJSONArray("products")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val pObj = arr.getJSONObject(i)
+                    val product = jsonToProduct(pObj)
+                    
+                    // Restore image from Base64 if present
+                    val base64 = pObj.optString("imageBase64", "")
+                    if (base64.isNotBlank()) {
+                        try {
+                            val bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+                            val imagesDir = File(db.openHelper.readableDatabase.path).parentFile?.let { 
+                                File(it.parentFile, "files/product_images") 
+                            } ?: File("/data/data/com.example/files/product_images") // Fallback
+                            
+                            if (!imagesDir.exists()) imagesDir.mkdirs()
+                            
+                            val fileName = "restored_${System.currentTimeMillis()}_${(1000..9999).random()}.jpg"
+                            val file = File(imagesDir, fileName)
+                            file.writeBytes(bytes)
+                            
+                            parsedProducts.add(product.copy(imageUrl = file.absolutePath))
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            parsedProducts.add(product)
+                        }
+                    } else {
+                        parsedProducts.add(product)
+                    }
                 }
             }
 
@@ -256,6 +313,7 @@ object DatabaseExporter {
                     db.expenseDao().deleteAllExpenses()
                     db.saleDao().deleteAllSales()
                     db.customerDao().deleteAllCustomers()
+                    db.productDao().deleteAllProducts()
                     if (parsedUsers.isNotEmpty()) {
                         db.userDao().deleteAllUsers()
                     }
@@ -266,6 +324,11 @@ object DatabaseExporter {
                 }
                 if (parsedCustomers.isNotEmpty()) {
                     db.customerDao().insertCustomers(parsedCustomers)
+                }
+                if (parsedProducts.isNotEmpty()) {
+                    for (p in parsedProducts) {
+                        db.productDao().insertProduct(p)
+                    }
                 }
                 if (parsedSales.isNotEmpty()) {
                     db.saleDao().insertSales(parsedSales)
@@ -473,6 +536,34 @@ object DatabaseExporter {
         salt = o.optString("salt"),
         isFingerprintEnabled = o.optBoolean("isFingerprintEnabled", false),
         securityQuestionsJson = o.optString("securityQuestionsJson", ""),
+        createdAt = o.optLong("createdAt", System.currentTimeMillis())
+    )
+
+    fun productToJson(p: ProductEntity): JSONObject = JSONObject().apply {
+        put("id", p.id)
+        put("name", p.name)
+        put("sku", p.sku)
+        put("category", p.category)
+        put("purchasePrice", p.purchasePrice)
+        put("sellingPrice", p.sellingPrice)
+        put("currentStock", p.currentStock)
+        put("minStock", p.minStock)
+        put("imageUrl", p.imageUrl)
+        put("description", p.description)
+        put("createdAt", p.createdAt)
+    }
+
+    fun jsonToProduct(o: JSONObject): ProductEntity = ProductEntity(
+        id = o.optLong("id", 0L),
+        name = o.optString("name"),
+        sku = o.optString("sku"),
+        category = o.optString("category"),
+        purchasePrice = o.optDouble("purchasePrice", 0.0),
+        sellingPrice = o.optDouble("sellingPrice", 0.0),
+        currentStock = o.optInt("currentStock", 0),
+        minStock = o.optInt("minStock", 0),
+        imageUrl = o.optString("imageUrl", ""),
+        description = o.optString("description", ""),
         createdAt = o.optLong("createdAt", System.currentTimeMillis())
     )
 

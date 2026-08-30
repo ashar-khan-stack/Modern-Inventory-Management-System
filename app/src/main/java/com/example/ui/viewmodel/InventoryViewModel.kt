@@ -21,11 +21,32 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Raw Flows from DB
     val customers = repository.customers.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    val products = repository.products.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
     val sales = repository.sales.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
     val expenses = repository.expenses.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
     val employees = repository.employees.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
     val salaries = repository.salaries.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
     val salaryPayments = salaries
+
+    // Product CRUD
+    fun saveProduct(product: ProductEntity) {
+        viewModelScope.launch {
+            if (product.id == 0L) {
+                repository.addProduct(product)
+                _uiEvents.emit(UiEvent.ShowToast("Product '${product.name}' added!"))
+            } else {
+                repository.updateProduct(product)
+                _uiEvents.emit(UiEvent.ShowToast("Product '${product.name}' updated!"))
+            }
+        }
+    }
+
+    fun deleteProduct(product: ProductEntity) {
+        viewModelScope.launch {
+            repository.deleteProduct(product)
+            _uiEvents.emit(UiEvent.ShowToast("Product deleted."))
+        }
+    }
 
     // Aggregated Dashboard Summary State Flow
     val dashboardSummaryTotals: StateFlow<DashboardSummaryTotals> = combine(
@@ -242,6 +263,26 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
     fun updatePosCartItemQuantity(productId: Long, qty: Int) = updatePosItemQuantity(productId, qty)
     fun removeFromPosCart(productId: Long) = removePosItem(productId)
     fun clearPosCart() = clearPos()
+
+    companion object {
+        fun saveImageUriToAppStorage(context: android.content.Context, uri: android.net.Uri, oldPath: String? = null): String {
+            return try {
+                val inputStream = context.contentResolver.openInputStream(uri) ?: return uri.toString()
+                val imagesDir = java.io.File(context.filesDir, "product_images")
+                if (!imagesDir.exists()) {
+                    imagesDir.mkdirs()
+                }
+                val fileName = "img_${System.currentTimeMillis()}_${(1000..9999).random()}.jpg"
+                val file = java.io.File(imagesDir, fileName)
+                file.outputStream().use { output ->
+                    inputStream.copyTo(output)
+                }
+                file.absolutePath
+            } catch (e: Exception) {
+                uri.toString()
+            }
+        }
+    }
 
     fun processCustomSale(
         customer: CustomerEntity,

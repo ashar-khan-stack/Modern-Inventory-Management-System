@@ -4,6 +4,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.OrderJsonParser
 import com.example.data.model.*
 import kotlinx.coroutines.flow.Flow
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -16,12 +17,48 @@ class InventoryRepository(private val db: AppDatabase) {
     val employees: Flow<List<EmployeeEntity>> = db.employeeDao().getAllEmployees()
     val salaries: Flow<List<SalaryPaymentEntity>> = db.salaryDao().getAllSalaries()
 
+    // Product Operations
+    val products: Flow<List<ProductEntity>> = db.productDao().getAllProducts()
+    suspend fun addProduct(product: ProductEntity): Long = db.productDao().insertProduct(product)
+    suspend fun updateProduct(product: ProductEntity) = db.productDao().updateProduct(product)
+    suspend fun deleteProduct(product: ProductEntity) {
+        db.productDao().deleteProduct(product)
+    }
+
     // Customer Operations
     suspend fun addCustomer(customer: CustomerEntity): Long = db.customerDao().insertCustomer(customer)
     suspend fun updateCustomer(customer: CustomerEntity) = db.customerDao().updateCustomer(customer)
-    suspend fun deleteCustomer(customer: CustomerEntity) = db.customerDao().deleteCustomer(customer)
+    suspend fun deleteCustomer(customer: CustomerEntity) {
+        val hasSales = db.saleDao().getAllSalesList().any { it.customerId == customer.id }
+        if (hasSales) {
+            db.customerDao().updateCustomer(customer.copy(status = "Inactive"))
+        } else {
+            db.customerDao().deleteCustomer(customer)
+        }
+    }
     suspend fun settleCustomerPayment(customerId: Long, amountPaid: Double): Boolean {
         val customer = db.customerDao().getCustomerById(customerId) ?: return false
+        
+        // Record settlement as a special sale order with 0 total to keep ledger intact
+        val settlementNo = "SET-${(10000..99999).random()}"
+        val saleOrder = SaleOrderEntity(
+            invoiceNumber = settlementNo,
+            customerId = customer.id,
+            customerName = customer.name,
+            customerPhone = customer.phone,
+            customerAddress = customer.address,
+            itemsJson = "[]",
+            subtotal = 0.0,
+            grandTotal = 0.0,
+            paidAmount = amountPaid,
+            remainingBalance = -amountPaid,
+            paymentMethod = "Cash/Manual",
+            paymentStatus = "Paid",
+            notes = "Direct Account Settlement / Manual Payment",
+            createdAt = System.currentTimeMillis()
+        )
+        db.saleDao().insertSale(saleOrder)
+
         val newPaid = customer.totalPaid + amountPaid
         val newOutstanding = (customer.outstandingBalance - amountPaid).coerceAtLeast(0.0)
         db.customerDao().updateCustomer(
@@ -57,6 +94,20 @@ class InventoryRepository(private val db: AppDatabase) {
 
         val taxInvoiceNo = "TX-${(1000000..9999999).random()}-${('A'..'Z').random()}"
         val taxIdStr = "TX-${(100000..999999).random()}-${('A'..'Z').random()}"
+
+        // PRE-CHECK STOCK
+        for (item in items) {
+            if (item.productId > 0) {
+                val product = db.productDao().getProductById(item.productId)
+                if (product != null) {
+                    if (product.currentStock < item.quantity) {
+                        return Result.failure(
+                            IllegalStateException("Insufficient stock for product: ${product.name}. Available: ${product.currentStock}, Requested: ${item.quantity}")
+                        )
+                    }
+                }
+            }
+        }
 
         val remainingBalance = (grandTotal - paidAmount).coerceAtLeast(0.0)
         val paymentStatus = when {
@@ -100,6 +151,17 @@ class InventoryRepository(private val db: AppDatabase) {
                     outstandingBalance = freshCustomer.outstandingBalance + remainingBalance
                 )
             )
+        }
+
+        // Update Stock
+        for (item in items) {
+            if (item.productId > 0) {
+                val product = db.productDao().getProductById(item.productId)
+                if (product != null) {
+                    val newStock = (product.currentStock - item.quantity).coerceAtLeast(0)
+                    db.productDao().updateProduct(product.copy(currentStock = newStock))
+                }
+            }
         }
 
         return Result.success(insertedSale)
@@ -176,7 +238,14 @@ class InventoryRepository(private val db: AppDatabase) {
     // Employees & Payroll
     suspend fun addEmployee(employee: EmployeeEntity): Long = db.employeeDao().insertEmployee(employee)
     suspend fun updateEmployee(employee: EmployeeEntity) = db.employeeDao().updateEmployee(employee)
-    suspend fun deleteEmployee(employee: EmployeeEntity) = db.employeeDao().deleteEmployee(employee)
+    suspend fun deleteEmployee(employee: EmployeeEntity) {
+        val hasSalaries = db.salaryDao().getAllSalariesList().any { it.employeeId == employee.id }
+        if (hasSalaries) {
+            db.employeeDao().updateEmployee(employee.copy(status = "Inactive"))
+        } else {
+            db.employeeDao().deleteEmployee(employee)
+        }
+    }
 
     suspend fun recordSalaryPayment(salary: SalaryPaymentEntity): Long {
         val id = db.salaryDao().insertSalary(salary)

@@ -34,6 +34,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.model.ProductEntity
 import com.example.data.model.SaleOrderEntity
 import com.example.data.repository.*
 import com.example.ui.screens.*
@@ -47,10 +48,17 @@ import com.example.ui.components.PermissionRationaleDialog
 
 enum class AppScreen(val title: String, val icon: ImageVector) {
     DASHBOARD("Dashboard", Icons.Default.Dashboard),
-    SALES("Sales / POS", Icons.Default.ReceiptLong),
-    PEOPLE("People", Icons.Default.People),
+    NEW_SALE("New Sale", Icons.Default.AddShoppingCart),
+    SALES("Sales / History", Icons.Default.ReceiptLong),
+    PRODUCTS("Products / Inventory", Icons.Default.Inventory),
+    PURCHASES("Purchases", Icons.Default.ShoppingBag),
+    CUSTOMER_INFO("Customer Info", Icons.Default.People),
+    EMPLOYEE_INFO("Employee Info", Icons.Default.Badge),
     EXPENSES("Expenses", Icons.Default.Receipt),
+    SALARIES("Salaries / Payroll", Icons.Default.Payments),
+    LEDGERS("Ledgers", Icons.Default.MenuBook),
     REPORTS("Reports & P&L", Icons.Default.BarChart),
+    ACCEPTANCE_REPORT("Acceptance Report", Icons.Default.Verified),
     SETTINGS("Settings", Icons.Default.Settings),
     INVOICE_VIEW("Invoice / Receipt", Icons.Default.Receipt)
 }
@@ -58,7 +66,8 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
 enum class PendingPermission {
     NONE,
     STORAGE,
-    NOTIFICATION
+    NOTIFICATION,
+    CAMERA
 }
 
 class MainActivity : FragmentActivity() {
@@ -99,50 +108,63 @@ class MainActivity : FragmentActivity() {
             val sharedPrefs = remember { context.getSharedPreferences("app_permissions_prefs", android.content.Context.MODE_PRIVATE) }
             var pendingPermission by remember { mutableStateOf(PendingPermission.NONE) }
 
-            LaunchedEffect(Unit) {
-                if (permissionManager.shouldShowStorageRationale()) {
-                    pendingPermission = PendingPermission.STORAGE
-                } else if (permissionManager.shouldShowNotificationRationale()) {
-                    pendingPermission = PendingPermission.NOTIFICATION
+            fun checkNextPermission() {
+                pendingPermission = when {
+                    permissionManager.shouldShowStorageRationale() -> PendingPermission.STORAGE
+                    permissionManager.shouldShowNotificationRationale() -> PendingPermission.NOTIFICATION
+                    permissionManager.shouldShowCameraRationale() -> PendingPermission.CAMERA
+                    else -> PendingPermission.NONE
                 }
+            }
+
+            LaunchedEffect(Unit) {
+                checkNextPermission()
             }
 
             if (pendingPermission == PendingPermission.STORAGE) {
                 PermissionRationaleDialog(
                     title = "Storage Access Required",
-                    description = "This permission allows the app to save and manage exported files such as invoices, reports, and backups.",
+                    description = "To save and export your PDF invoices, reports, and backup data, the app requires write access to your device storage.",
+                    confirmButtonText = "Grant Access",
+                    dismissButtonText = "Not Now",
                     onConfirm = {
-                        permissionManager.requestStoragePermission { isGranted ->
-                            if (permissionManager.shouldShowNotificationRationale()) {
-                                pendingPermission = PendingPermission.NOTIFICATION
-                            } else {
-                                pendingPermission = PendingPermission.NONE
-                            }
-                        }
+                        permissionManager.requestStoragePermission { checkNextPermission() }
                     },
                     onDismiss = {
                         sharedPrefs.edit().putBoolean("has_requested_storage", true).apply()
-                        if (permissionManager.shouldShowNotificationRationale()) {
-                            pendingPermission = PendingPermission.NOTIFICATION
-                        } else {
-                            pendingPermission = PendingPermission.NONE
-                        }
+                        checkNextPermission()
                     }
                 )
             }
 
             if (pendingPermission == PendingPermission.NOTIFICATION) {
                 PermissionRationaleDialog(
-                    title = "Notification Permission Required",
+                    title = "Notification Permission",
                     description = "Allow notifications so the app can send important reminders, alerts, and payroll updates.",
+                    confirmButtonText = "Allow",
+                    dismissButtonText = "Not Now",
                     onConfirm = {
-                        permissionManager.requestNotificationPermission { isGranted ->
-                            pendingPermission = PendingPermission.NONE
-                        }
+                        permissionManager.requestNotificationPermission { checkNextPermission() }
                     },
                     onDismiss = {
                         sharedPrefs.edit().putBoolean("has_requested_notification", true).apply()
-                        pendingPermission = PendingPermission.NONE
+                        checkNextPermission()
+                    }
+                )
+            }
+
+            if (pendingPermission == PendingPermission.CAMERA) {
+                PermissionRationaleDialog(
+                    title = "Camera Access Required",
+                    description = "Allow camera access to take photos of products for your inventory.",
+                    confirmButtonText = "Allow",
+                    dismissButtonText = "Not Now",
+                    onConfirm = {
+                        permissionManager.requestCameraPermission { checkNextPermission() }
+                    },
+                    onDismiss = {
+                        sharedPrefs.edit().putBoolean("has_requested_camera", true).apply()
+                        checkNextPermission()
                     }
                 )
             }
@@ -203,8 +225,26 @@ fun MainApp(
     var previousScreen by remember { mutableStateOf(AppScreen.DASHBOARD) }
     var selectedInvoiceForView by remember { mutableStateOf<SaleOrderEntity?>(null) }
 
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        if (com.example.BuildConfig.DEBUG) {
+            val result = com.example.ui.util.AppStartupDiagnostics.runStartupDiagnostics(context)
+            com.example.ui.util.DebugNavigationLogger.logScreenState("Startup", "Diagnostics completed. Consistency issues: ${result.issues.size}")
+        }
+    }
+
+    LaunchedEffect(currentScreen) {
+        if (com.example.BuildConfig.DEBUG) {
+            com.example.ui.util.DebugNavigationLogger.logNavigation(previousScreen.name, currentScreen.name)
+        }
+        if (currentScreen != AppScreen.INVOICE_VIEW) {
+            previousScreen = currentScreen
+        }
+    }
+
     // State Collection from ViewModel
     val customers by viewModel.customers.collectAsStateWithLifecycle()
+    val products by viewModel.products.collectAsStateWithLifecycle()
     val sales by viewModel.sales.collectAsStateWithLifecycle()
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
     val employees by viewModel.employees.collectAsStateWithLifecycle()
@@ -294,10 +334,26 @@ fun MainApp(
                         }
                     )
                     DrawerNavMenuItem(
+                        screen = AppScreen.NEW_SALE,
+                        currentScreen = currentScreen,
+                        onClick = {
+                            currentScreen = AppScreen.NEW_SALE
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerNavMenuItem(
                         screen = AppScreen.SALES,
                         currentScreen = currentScreen,
                         onClick = {
                             currentScreen = AppScreen.SALES
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerNavMenuItem(
+                        screen = AppScreen.PRODUCTS,
+                        currentScreen = currentScreen,
+                        onClick = {
+                            currentScreen = AppScreen.PRODUCTS
                             scope.launch { drawerState.close() }
                         }
                     )
@@ -314,10 +370,34 @@ fun MainApp(
                     )
 
                     DrawerNavMenuItem(
-                        screen = AppScreen.PEOPLE,
+                        screen = AppScreen.CUSTOMER_INFO,
                         currentScreen = currentScreen,
                         onClick = {
-                            currentScreen = AppScreen.PEOPLE
+                            currentScreen = AppScreen.CUSTOMER_INFO
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerNavMenuItem(
+                        screen = AppScreen.EMPLOYEE_INFO,
+                        currentScreen = currentScreen,
+                        onClick = {
+                            currentScreen = AppScreen.EMPLOYEE_INFO
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerNavMenuItem(
+                        screen = AppScreen.SALARIES,
+                        currentScreen = currentScreen,
+                        onClick = {
+                            currentScreen = AppScreen.SALARIES
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerNavMenuItem(
+                        screen = AppScreen.PURCHASES,
+                        currentScreen = currentScreen,
+                        onClick = {
+                            currentScreen = AppScreen.PURCHASES
                             scope.launch { drawerState.close() }
                         }
                     )
@@ -326,6 +406,14 @@ fun MainApp(
                         currentScreen = currentScreen,
                         onClick = {
                             currentScreen = AppScreen.EXPENSES
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerNavMenuItem(
+                        screen = AppScreen.LEDGERS,
+                        currentScreen = currentScreen,
+                        onClick = {
+                            currentScreen = AppScreen.LEDGERS
                             scope.launch { drawerState.close() }
                         }
                     )
@@ -349,6 +437,16 @@ fun MainApp(
                             scope.launch { drawerState.close() }
                         }
                     )
+                    if (com.example.BuildConfig.DEBUG) {
+                        DrawerNavMenuItem(
+                            screen = AppScreen.ACCEPTANCE_REPORT,
+                            currentScreen = currentScreen,
+                            onClick = {
+                                currentScreen = AppScreen.ACCEPTANCE_REPORT
+                                scope.launch { drawerState.close() }
+                            }
+                        )
+                    }
                     DrawerNavMenuItem(
                         screen = AppScreen.SETTINGS,
                         currentScreen = currentScreen,
@@ -389,6 +487,7 @@ fun MainApp(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(paddingValues)
             ) {
                 when (currentScreen) {
@@ -396,19 +495,34 @@ fun MainApp(
                         sales = sales,
                         expenses = expenses,
                         customers = customers,
+                        employees = employees,
                         salaryPayments = salaryPayments,
                         summaryTotals = dashboardSummaryTotals,
                         currentSession = currentSession,
-                        onNavigateToSales = { currentScreen = AppScreen.SALES },
+                        onNavigateToSales = { currentScreen = AppScreen.NEW_SALE },
                         onNavigateToExpenses = { currentScreen = AppScreen.EXPENSES },
+                        onNavigateToPeople = { currentScreen = AppScreen.CUSTOMER_INFO },
                         onSelectInvoice = { sale ->
                             previousScreen = AppScreen.DASHBOARD
                             selectedInvoiceForView = sale
                             currentScreen = AppScreen.INVOICE_VIEW
                         }
                     )
-                    AppScreen.SALES -> SalesScreen(
-                        products = emptyList(),
+                                        AppScreen.NEW_SALE -> NewSaleScreen(
+                        products = products,
+                        customers = customers,
+                        onProcessSale = { customer, items, paid, method, disc, tax, notes, onSuccess ->
+                            viewModel.processCustomSale(customer, items, paid, method, disc, tax, notes, onSuccess)
+                        },
+                        onViewInvoice = { sale ->
+                            previousScreen = AppScreen.NEW_SALE
+                            selectedInvoiceForView = sale
+                            currentScreen = AppScreen.INVOICE_VIEW
+                        },
+                        onAddCustomer = { viewModel.saveCustomer(it) }
+                    )
+                                                            AppScreen.SALES -> SalesHistoryScreen(
+                        products = products,
                         customers = customers,
                         pastSales = sales,
                         cartItems = posCart,
@@ -430,21 +544,41 @@ fun MainApp(
                             selectedInvoiceForView = sale
                             currentScreen = AppScreen.INVOICE_VIEW
                         },
-                        onAddCustomer = { viewModel.saveCustomer(it) }
+                        onAddCustomer = { viewModel.saveCustomer(it) },
+                        onNavigateToNewSale = { currentScreen = AppScreen.NEW_SALE }
                     )
-                    AppScreen.PEOPLE -> PeopleScreen(
+                    AppScreen.CUSTOMER_INFO -> CustomerInfoScreen(
                         customers = customers,
-                        employees = employees,
-                        salaryPayments = salaryPayments,
                         sales = sales,
                         onSaveCustomer = { viewModel.saveCustomer(it) },
                         onDeleteCustomer = { viewModel.deleteCustomer(it) },
-                        onSettlePayment = { id, amt -> viewModel.settleCustomerPayment(id, amt) },
+                        onSettlePayment = { id, amt -> viewModel.settleCustomerPayment(id, amt) }
+                    )
+                    AppScreen.EMPLOYEE_INFO -> EmployeeInfoScreen(
+                        employees = employees,
                         onSaveEmployee = { viewModel.saveEmployee(it) },
-                        onDeleteEmployee = { viewModel.deleteEmployee(it) },
+                        onDeleteEmployee = { viewModel.deleteEmployee(it) }
+                    )
+                    AppScreen.SALARIES -> SalariesScreen(
+                        employees = employees,
+                        salaryPayments = salaryPayments,
                         onDisburseSalary = { viewModel.disburseSalary(it) },
                         onUpdateSalary = { viewModel.updateSalary(it) },
                         onDeleteSalary = { viewModel.deleteSalary(it) }
+                    )
+                    AppScreen.PRODUCTS -> ProductsScreen(
+                        products = products,
+                        onSaveProduct = { viewModel.saveProduct(it) },
+                        onDeleteProduct = { viewModel.deleteProduct(it) }
+                    )
+                    AppScreen.PURCHASES -> PurchasesScreen(
+                        expenses = expenses,
+                        onSavePurchase = { viewModel.saveExpense(it) },
+                        onDeletePurchase = { viewModel.deleteExpense(it) }
+                    )
+                    AppScreen.LEDGERS -> LedgersScreen(
+                        customers = customers,
+                        sales = sales
                     )
                     AppScreen.EXPENSES -> ExpensesScreen(
                         expenses = expenses,
@@ -457,6 +591,11 @@ fun MainApp(
                         customers = customers,
                         salaryPayments = salaryPayments
                     )
+                    AppScreen.ACCEPTANCE_REPORT -> {
+                        if (com.example.BuildConfig.DEBUG) {
+                            com.example.ui.screens.AcceptanceReportScreen()
+                        }
+                    }
                     AppScreen.SETTINGS -> SettingsScreen(
                         currentSession = currentSession,
                         authRepository = authRepository,
@@ -472,7 +611,7 @@ fun MainApp(
                         onBackClick = { currentScreen = previousScreen },
                         onNewSaleClick = {
                             viewModel.clearPosCart()
-                            currentScreen = AppScreen.SALES
+                            currentScreen = AppScreen.NEW_SALE
                         }
                     )
                 }

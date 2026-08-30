@@ -1,0 +1,1 @@
+cat app/src/main/java/com/example/ui/components/MultiStepFormLayout.kt | sed 's/fun MultiStepFormDialog(/fun MultiStepFormScreen(/g' | sed 's/Dialog(/Box(/g' | sed 's/properties = DialogProperties(usePlatformDefaultWidth = false)//g' > temp_multistep.kt

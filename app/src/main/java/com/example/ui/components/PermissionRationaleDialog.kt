@@ -11,6 +11,8 @@ fun PermissionRationaleDialog(
     description: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    confirmButtonText: String = "Grant Access",
+    dismissButtonText: String = "Cancel",
     modifier: Modifier = Modifier
 ) {
     AlertDialog(
@@ -22,7 +24,7 @@ fun PermissionRationaleDialog(
                 onClick = onConfirm,
                 modifier = Modifier.testTag("rationale_confirm_button")
             ) {
-                Text("Grant Access")
+                Text(confirmButtonText)
             }
         },
         dismissButton = {
@@ -30,7 +32,7 @@ fun PermissionRationaleDialog(
                 onClick = onDismiss,
                 modifier = Modifier.testTag("rationale_dismiss_button")
             ) {
-                Text("Cancel")
+                Text(dismissButtonText)
             }
         },
         modifier = modifier.testTag("permission_rationale_dialog")
