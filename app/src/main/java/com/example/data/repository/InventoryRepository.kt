@@ -23,9 +23,117 @@ class InventoryRepository(private val db: AppDatabase) {
     val expenses: Flow<List<ExpenseEntity>> = db.expenseDao().getAllExpenses()
     val employees: Flow<List<EmployeeEntity>> = db.employeeDao().getAllEmployees()
     val salaries: Flow<List<SalaryPaymentEntity>> = db.salaryDao().getAllSalaries()
+    val bankAccounts: Flow<List<BankAccountEntity>> = db.bankAccountDao().getAllBankAccounts()
+    val bankTransactions: Flow<List<BankTransactionEntity>> = db.bankTransactionDao().getAllTransactions()
+    val vouchers: Flow<List<VoucherEntity>> = db.voucherDao().getAllVouchers()
+
+    // Bank Account Operations
+    suspend fun addBankAccount(account: BankAccountEntity): Long = db.bankAccountDao().insertBankAccount(account)
+    suspend fun updateBankAccount(account: BankAccountEntity) = db.bankAccountDao().updateBankAccount(account)
+    suspend fun deleteBankAccount(account: BankAccountEntity) {
+        db.bankTransactionDao().deleteTransactionsByAccount(account.id)
+        db.bankAccountDao().deleteBankAccount(account)
+    }
+
+    // Bank Transaction Operations & Auto Debit/Credit Voucher Creation
+    suspend fun recordBankTransaction(
+        bankAccountId: Long,
+        type: String, // Deposit, Withdrawal, Transfer, Income, Expense
+        amount: Double,
+        description: String,
+        refVoucher: String = "",
+        targetAccountId: Long? = null,
+        transactionDate: Long = System.currentTimeMillis()
+    ): Long {
+        val bankAccount = db.bankAccountDao().getBankAccountById(bankAccountId) ?: return -1L
+        
+        var debit = 0.0
+        var credit = 0.0
+        when (type) {
+            "Deposit", "Income", "Transfer-In" -> {
+                credit = amount
+            }
+            "Withdrawal", "Expense", "Transfer", "Transfer-Out" -> {
+                debit = amount
+            }
+        }
+
+        val vchNo = if (refVoucher.isNotBlank()) refVoucher else "VCH-${SimpleDateFormat("yyMM", Locale.US).format(Date())}-${(1000..9999).random()}"
+
+        val transaction = BankTransactionEntity(
+            bankAccountId = bankAccountId,
+            transactionType = type,
+            amount = amount,
+            debit = debit,
+            credit = credit,
+            description = description,
+            referenceVoucher = vchNo,
+            targetAccountId = targetAccountId,
+            transactionDate = transactionDate
+        )
+
+        val txId = db.bankTransactionDao().insertTransaction(transaction)
+
+        val updatedBalance = bankAccount.currentBalance + credit - debit
+        db.bankAccountDao().updateBankAccount(bankAccount.copy(currentBalance = updatedBalance))
+
+        val voucher = VoucherEntity(
+            voucherNumber = vchNo,
+            voucherType = when(type) {
+                "Deposit" -> "Bank Deposit"
+                "Withdrawal" -> "Bank Withdrawal"
+                "Transfer" -> "Bank Transfer"
+                "Income" -> "Receipt"
+                "Expense" -> "Payment"
+                else -> "Other"
+            },
+            date = transactionDate,
+            accountName = "${bankAccount.bankName} (${bankAccount.accountNumber})",
+            description = description,
+            debit = debit,
+            credit = credit,
+            amount = amount,
+            referenceNotes = "Bank Tx #$txId",
+            bankAccountId = bankAccountId
+        )
+        db.voucherDao().insertVoucher(voucher)
+
+        if (type == "Transfer" && targetAccountId != null && targetAccountId > 0) {
+            val targetAccount = db.bankAccountDao().getBankAccountById(targetAccountId)
+            if (targetAccount != null) {
+                val targetTx = BankTransactionEntity(
+                    bankAccountId = targetAccountId,
+                    transactionType = "Deposit",
+                    amount = amount,
+                    debit = 0.0,
+                    credit = amount,
+                    description = "Transfer received from ${bankAccount.bankName}: $description",
+                    referenceVoucher = vchNo,
+                    targetAccountId = bankAccountId,
+                    transactionDate = transactionDate
+                )
+                db.bankTransactionDao().insertTransaction(targetTx)
+                db.bankAccountDao().updateBankAccount(targetAccount.copy(currentBalance = targetAccount.currentBalance + amount))
+            }
+        }
+
+        triggerNotificationSync()
+        return txId
+    }
+
+    // Voucher Operations
+    suspend fun recordVoucher(voucher: VoucherEntity): Long = db.voucherDao().insertVoucher(voucher)
+    suspend fun deleteVoucher(voucher: VoucherEntity) = db.voucherDao().deleteVoucher(voucher)
 
     // Customer Operations
-    suspend fun addCustomer(customer: CustomerEntity): Long = db.customerDao().insertCustomer(customer)
+    suspend fun addCustomer(customer: CustomerEntity): Long {
+        val custToInsert = if (customer.outstandingBalance == 0.0 && customer.openingBalance > 0.0) {
+            customer.copy(outstandingBalance = customer.openingBalance)
+        } else {
+            customer
+        }
+        return db.customerDao().insertCustomer(custToInsert)
+    }
     suspend fun updateCustomer(customer: CustomerEntity) = db.customerDao().updateCustomer(customer)
     suspend fun deleteCustomer(customer: CustomerEntity) {
         val hasSales = db.saleDao().getAllSalesList().any { it.customerId == customer.id }

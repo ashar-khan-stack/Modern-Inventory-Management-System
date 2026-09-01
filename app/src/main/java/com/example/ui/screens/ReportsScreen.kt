@@ -39,7 +39,7 @@ fun ReportsScreen(
     val taxesCollected = remember(sales) { sales.sumOf { it.taxAmount } }
     val netSalesRevenue = remember(sales) { sales.sumOf { it.grandTotal } }
 
-    val generalExpenses = remember(expenses) { expenses.sumOf { it.amount } }
+    val generalExpenses = remember(expenses) { expenses.filter { it.category != "Salary" }.sumOf { it.amount } }
     val salaryExpenses = remember(salaryPayments) { salaryPayments.sumOf { it.netSalary } }
     val totalOperatingExpenses = generalExpenses + salaryExpenses
 

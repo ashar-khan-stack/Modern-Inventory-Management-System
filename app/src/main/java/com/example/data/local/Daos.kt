@@ -183,3 +183,84 @@ interface UserDao {
     @Query("SELECT COUNT(*) FROM users")
     suspend fun getUserCount(): Int
 }
+
+@Dao
+interface BankAccountDao {
+    @Query("SELECT * FROM bank_accounts ORDER BY bankName ASC")
+    fun getAllBankAccounts(): Flow<List<BankAccountEntity>>
+
+    @Query("SELECT * FROM bank_accounts ORDER BY bankName ASC")
+    suspend fun getAllBankAccountsList(): List<BankAccountEntity>
+
+    @Query("SELECT * FROM bank_accounts WHERE id = :id LIMIT 1")
+    suspend fun getBankAccountById(id: Long): BankAccountEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBankAccount(account: BankAccountEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBankAccounts(accounts: List<BankAccountEntity>)
+
+    @Update
+    suspend fun updateBankAccount(account: BankAccountEntity)
+
+    @Delete
+    suspend fun deleteBankAccount(account: BankAccountEntity)
+
+    @Query("DELETE FROM bank_accounts")
+    suspend fun deleteAllBankAccounts()
+}
+
+@Dao
+interface BankTransactionDao {
+    @Query("SELECT * FROM bank_transactions ORDER BY transactionDate DESC")
+    fun getAllTransactions(): Flow<List<BankTransactionEntity>>
+
+    @Query("SELECT * FROM bank_transactions WHERE bankAccountId = :bankAccountId ORDER BY transactionDate DESC")
+    fun getTransactionsByAccount(bankAccountId: Long): Flow<List<BankTransactionEntity>>
+
+    @Query("SELECT * FROM bank_transactions ORDER BY transactionDate DESC")
+    suspend fun getAllTransactionsList(): List<BankTransactionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTransaction(transaction: BankTransactionEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTransactions(transactions: List<BankTransactionEntity>)
+
+    @Delete
+    suspend fun deleteTransaction(transaction: BankTransactionEntity)
+
+    @Query("DELETE FROM bank_transactions WHERE bankAccountId = :bankAccountId")
+    suspend fun deleteTransactionsByAccount(bankAccountId: Long)
+
+    @Query("DELETE FROM bank_transactions")
+    suspend fun deleteAllTransactions()
+}
+
+@Dao
+interface VoucherDao {
+    @Query("SELECT * FROM vouchers ORDER BY date DESC")
+    fun getAllVouchers(): Flow<List<VoucherEntity>>
+
+    @Query("SELECT * FROM vouchers ORDER BY date DESC")
+    suspend fun getAllVouchersList(): List<VoucherEntity>
+
+    @Query("SELECT * FROM vouchers WHERE id = :id LIMIT 1")
+    suspend fun getVoucherById(id: Long): VoucherEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVoucher(voucher: VoucherEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVouchers(vouchers: List<VoucherEntity>)
+
+    @Update
+    suspend fun updateVoucher(voucher: VoucherEntity)
+
+    @Delete
+    suspend fun deleteVoucher(voucher: VoucherEntity)
+
+    @Query("DELETE FROM vouchers")
+    suspend fun deleteAllVouchers()
+}

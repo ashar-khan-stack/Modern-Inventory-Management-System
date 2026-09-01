@@ -56,6 +56,9 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
     EMPLOYEE_INFO("Employee Info", Icons.Default.Badge),
     EXPENSES("Expenses", Icons.Default.Receipt),
     SALARIES("Salaries / Payroll", Icons.Default.Payments),
+    BANK("Bank", Icons.Default.AccountBalance),
+    CLIENT_POSITION_REPORT("Client Position Report", Icons.Default.Assessment),
+    MONTHLY_POSITION_REPORT("Monthly Position Report", Icons.Default.DateRange),
     LEDGERS("Ledgers", Icons.Default.MenuBook),
     REPORTS("Reports & P&L", Icons.Default.BarChart),
     ACCEPTANCE_REPORT("Acceptance Report", Icons.Default.Verified),
@@ -219,7 +222,9 @@ fun MainApp(
     themePreferenceManager: ThemePreferenceManager,
     businessProfileManager: BusinessProfileManager,
     onLaunchBiometricPrompt: (onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
-    viewModel: InventoryViewModel = viewModel()
+    viewModel: InventoryViewModel = viewModel(
+        factory = com.example.ui.viewmodel.InventoryViewModelFactory(androidx.compose.ui.platform.LocalContext.current.applicationContext)
+    )
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -250,6 +255,9 @@ fun MainApp(
     val employees by viewModel.employees.collectAsStateWithLifecycle()
     val salaryPayments by viewModel.salaryPayments.collectAsStateWithLifecycle()
     val dashboardSummaryTotals by viewModel.dashboardSummaryTotals.collectAsStateWithLifecycle()
+    val bankAccounts by viewModel.bankAccounts.collectAsStateWithLifecycle()
+    val bankTransactions by viewModel.bankTransactions.collectAsStateWithLifecycle()
+    val vouchers by viewModel.vouchers.collectAsStateWithLifecycle()
 
 
     // Handle back button when on sub-screens or drawer is open
@@ -396,6 +404,30 @@ fun MainApp(
                         currentScreen = currentScreen,
                         onClick = {
                             currentScreen = AppScreen.EXPENSES
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerNavMenuItem(
+                        screen = AppScreen.BANK,
+                        currentScreen = currentScreen,
+                        onClick = {
+                            currentScreen = AppScreen.BANK
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerNavMenuItem(
+                        screen = AppScreen.CLIENT_POSITION_REPORT,
+                        currentScreen = currentScreen,
+                        onClick = {
+                            currentScreen = AppScreen.CLIENT_POSITION_REPORT
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerNavMenuItem(
+                        screen = AppScreen.MONTHLY_POSITION_REPORT,
+                        currentScreen = currentScreen,
+                        onClick = {
+                            currentScreen = AppScreen.MONTHLY_POSITION_REPORT
                             scope.launch { drawerState.close() }
                         }
                     )
@@ -551,6 +583,30 @@ fun MainApp(
                         expenses = expenses,
                         onSavePurchase = { viewModel.saveExpense(it) },
                         onDeletePurchase = { viewModel.deleteExpense(it) }
+                    )
+                    AppScreen.BANK -> BankScreen(
+                        bankAccounts = bankAccounts,
+                        bankTransactions = bankTransactions,
+                        vouchers = vouchers,
+                        onSaveAccount = { viewModel.saveBankAccount(it) },
+                        onDeleteAccount = { viewModel.deleteBankAccount(it) },
+                        onRecordTransaction = { accId, type, amt, desc, refVch, targetAccId ->
+                            viewModel.recordBankTransaction(accId, type, amt, desc, refVch, targetAccId)
+                        },
+                        onCreateVoucher = { type, accName, desc, amt, isDebit, bankAccId, notes ->
+                            viewModel.createVoucher(type, accName, desc, amt, isDebit, bankAccId, notes)
+                        },
+                        onDeleteVoucher = { viewModel.deleteVoucher(it) }
+                    )
+                    AppScreen.CLIENT_POSITION_REPORT -> ClientPositionReportScreen(
+                        customers = customers,
+                        sales = sales,
+                        onSettlePayment = { id, amt -> viewModel.settleCustomerPayment(id, amt) }
+                    )
+                    AppScreen.MONTHLY_POSITION_REPORT -> MonthlyPositionReportScreen(
+                        sales = sales,
+                        expenses = expenses,
+                        salaries = salaryPayments
                     )
                     AppScreen.LEDGERS -> LedgersScreen(
                         customers = customers,

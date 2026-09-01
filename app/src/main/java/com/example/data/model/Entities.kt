@@ -116,6 +116,54 @@ data class UserEntity(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+@Entity(tableName = "bank_accounts")
+data class BankAccountEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val bankName: String,
+    val accountTitle: String,
+    val accountNumber: String,
+    val iban: String = "",
+    val branchName: String = "",
+    val openingBalance: Double = 0.0,
+    val currentBalance: Double = openingBalance,
+    val status: String = "Active", // Active, Inactive
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "bank_transactions")
+data class BankTransactionEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val bankAccountId: Long,
+    val transactionType: String, // Deposit, Withdrawal, Transfer, Income, Expense
+    val amount: Double,
+    val debit: Double = 0.0,
+    val credit: Double = 0.0,
+    val description: String = "",
+    val referenceVoucher: String = "",
+    val targetAccountId: Long? = null,
+    val transactionDate: Long = System.currentTimeMillis(),
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "vouchers")
+data class VoucherEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val voucherNumber: String,
+    val voucherType: String, // Receipt, Payment, Bank Deposit, Bank Withdrawal, Bank Transfer, Other
+    val date: Long = System.currentTimeMillis(),
+    val accountName: String,
+    val description: String,
+    val debit: Double = 0.0,
+    val credit: Double = 0.0,
+    val amount: Double = 0.0,
+    val referenceNotes: String = "",
+    val bankAccountId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
 data class SecurityQuestionItem(
     val questionText: String,
     val answerHash: String

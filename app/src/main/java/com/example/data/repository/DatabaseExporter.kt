@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import androidx.room.withTransaction
 import com.example.data.local.AppDatabase
 import com.example.data.model.*
 import com.example.ui.theme.ThemePreferenceManager
@@ -66,6 +67,18 @@ object DatabaseExporter {
             val usersArray = JSONArray()
             db.userDao().getAllUsersList().forEach { usersArray.put(userToJson(it)) }
             root.put("users", usersArray)
+
+            val bankAccountsArray = JSONArray()
+            db.bankAccountDao().getAllBankAccountsList().forEach { bankAccountsArray.put(bankAccountToJson(it)) }
+            root.put("bankAccounts", bankAccountsArray)
+
+            val bankTxArray = JSONArray()
+            db.bankTransactionDao().getAllTransactionsList().forEach { bankTxArray.put(bankTxToJson(it)) }
+            root.put("bankTransactions", bankTxArray)
+
+            val vouchersArray = JSONArray()
+            db.voucherDao().getAllVouchersList().forEach { vouchersArray.put(voucherToJson(it)) }
+            root.put("vouchers", vouchersArray)
 
             val profile = profileManager.profile.value
             val profileJson = JSONObject()
@@ -140,49 +153,72 @@ object DatabaseExporter {
                     return@withContext Result.failure(Exception(validation.errorMessage))
                 }
 
-                if (clearExistingBeforeRestore) {
-                    db.clearAllTables()
-                }
-
-                val customersArr = root.optJSONArray("customers")
-                if (customersArr != null) {
-                    for (i in 0 until customersArr.length()) {
-                        db.customerDao().insertCustomer(jsonToCustomer(customersArr.getJSONObject(i)))
+                db.withTransaction {
+                    if (clearExistingBeforeRestore) {
+                        db.clearAllTables()
                     }
-                }
 
-                val salesArr = root.optJSONArray("sales")
-                if (salesArr != null) {
-                    for (i in 0 until salesArr.length()) {
-                        db.saleDao().insertSale(jsonToSale(salesArr.getJSONObject(i)))
+                    val customersArr = root.optJSONArray("customers")
+                    if (customersArr != null) {
+                        for (i in 0 until customersArr.length()) {
+                            db.customerDao().insertCustomer(jsonToCustomer(customersArr.getJSONObject(i)))
+                        }
                     }
-                }
 
-                val expensesArr = root.optJSONArray("expenses")
-                if (expensesArr != null) {
-                    for (i in 0 until expensesArr.length()) {
-                        db.expenseDao().insertExpense(jsonToExpense(expensesArr.getJSONObject(i)))
+                    val salesArr = root.optJSONArray("sales")
+                    if (salesArr != null) {
+                        for (i in 0 until salesArr.length()) {
+                            db.saleDao().insertSale(jsonToSale(salesArr.getJSONObject(i)))
+                        }
                     }
-                }
 
-                val empArr = root.optJSONArray("employees")
-                if (empArr != null) {
-                    for (i in 0 until empArr.length()) {
-                        db.employeeDao().insertEmployee(jsonToEmployee(empArr.getJSONObject(i)))
+                    val expensesArr = root.optJSONArray("expenses")
+                    if (expensesArr != null) {
+                        for (i in 0 until expensesArr.length()) {
+                            db.expenseDao().insertExpense(jsonToExpense(expensesArr.getJSONObject(i)))
+                        }
                     }
-                }
 
-                val salArr = root.optJSONArray("salaryPayments")
-                if (salArr != null) {
-                    for (i in 0 until salArr.length()) {
-                        db.salaryDao().insertSalary(jsonToSalary(salArr.getJSONObject(i)))
+                    val empArr = root.optJSONArray("employees")
+                    if (empArr != null) {
+                        for (i in 0 until empArr.length()) {
+                            db.employeeDao().insertEmployee(jsonToEmployee(empArr.getJSONObject(i)))
+                        }
                     }
-                }
 
-                val usersArr = root.optJSONArray("users")
-                if (usersArr != null) {
-                    for (i in 0 until usersArr.length()) {
-                        db.userDao().insertOrReplaceUser(jsonToUser(usersArr.getJSONObject(i)))
+                    val salArr = root.optJSONArray("salaryPayments")
+                    if (salArr != null) {
+                        for (i in 0 until salArr.length()) {
+                            db.salaryDao().insertSalary(jsonToSalary(salArr.getJSONObject(i)))
+                        }
+                    }
+
+                    val usersArr = root.optJSONArray("users")
+                    if (usersArr != null) {
+                        for (i in 0 until usersArr.length()) {
+                            db.userDao().insertOrReplaceUser(jsonToUser(usersArr.getJSONObject(i)))
+                        }
+                    }
+
+                    val bankAccountsArr = root.optJSONArray("bankAccounts")
+                    if (bankAccountsArr != null) {
+                        for (i in 0 until bankAccountsArr.length()) {
+                            db.bankAccountDao().insertBankAccount(jsonToBankAccount(bankAccountsArr.getJSONObject(i)))
+                        }
+                    }
+
+                    val bankTxArr = root.optJSONArray("bankTransactions")
+                    if (bankTxArr != null) {
+                        for (i in 0 until bankTxArr.length()) {
+                            db.bankTransactionDao().insertTransaction(jsonToBankTx(bankTxArr.getJSONObject(i)))
+                        }
+                    }
+
+                    val vouchersArr = root.optJSONArray("vouchers")
+                    if (vouchersArr != null) {
+                        for (i in 0 until vouchersArr.length()) {
+                            db.voucherDao().insertVoucher(jsonToVoucher(vouchersArr.getJSONObject(i)))
+                        }
                     }
                 }
 
@@ -416,6 +452,103 @@ object DatabaseExporter {
             address = pObj.optString("address", ""),
             website = pObj.optString("website", ""),
             logoUrl = pObj.optString("logoUrl", "")
+        )
+    }
+
+    private fun bankAccountToJson(b: BankAccountEntity): JSONObject {
+        val o = JSONObject()
+        o.put("id", b.id)
+        o.put("bankName", b.bankName)
+        o.put("accountTitle", b.accountTitle)
+        o.put("accountNumber", b.accountNumber)
+        o.put("iban", b.iban)
+        o.put("branchName", b.branchName)
+        o.put("openingBalance", b.openingBalance)
+        o.put("currentBalance", b.currentBalance)
+        o.put("status", b.status)
+        o.put("createdAt", b.createdAt)
+        return o
+    }
+
+    private fun jsonToBankAccount(o: JSONObject): BankAccountEntity {
+        val openBal = o.optDouble("openingBalance", 0.0)
+        return BankAccountEntity(
+            id = 0,
+            bankName = o.optString("bankName", ""),
+            accountTitle = o.optString("accountTitle", ""),
+            accountNumber = o.optString("accountNumber", ""),
+            iban = o.optString("iban", ""),
+            branchName = o.optString("branchName", ""),
+            openingBalance = openBal,
+            currentBalance = o.optDouble("currentBalance", openBal),
+            status = o.optString("status", "Active"),
+            createdAt = o.optLong("createdAt", System.currentTimeMillis())
+        )
+    }
+
+    private fun bankTxToJson(tx: BankTransactionEntity): JSONObject {
+        val o = JSONObject()
+        o.put("id", tx.id)
+        o.put("bankAccountId", tx.bankAccountId)
+        o.put("transactionType", tx.transactionType)
+        o.put("amount", tx.amount)
+        o.put("debit", tx.debit)
+        o.put("credit", tx.credit)
+        o.put("description", tx.description)
+        o.put("referenceVoucher", tx.referenceVoucher)
+        if (tx.targetAccountId != null) o.put("targetAccountId", tx.targetAccountId)
+        o.put("transactionDate", tx.transactionDate)
+        o.put("createdAt", tx.createdAt)
+        return o
+    }
+
+    private fun jsonToBankTx(o: JSONObject): BankTransactionEntity {
+        return BankTransactionEntity(
+            id = 0,
+            bankAccountId = o.optLong("bankAccountId", 0),
+            transactionType = o.optString("transactionType", "Deposit"),
+            amount = o.optDouble("amount", 0.0),
+            debit = o.optDouble("debit", 0.0),
+            credit = o.optDouble("credit", 0.0),
+            description = o.optString("description", ""),
+            referenceVoucher = o.optString("referenceVoucher", ""),
+            targetAccountId = if (o.has("targetAccountId")) o.optLong("targetAccountId") else null,
+            transactionDate = o.optLong("transactionDate", System.currentTimeMillis()),
+            createdAt = o.optLong("createdAt", System.currentTimeMillis())
+        )
+    }
+
+    private fun voucherToJson(v: VoucherEntity): JSONObject {
+        val o = JSONObject()
+        o.put("id", v.id)
+        o.put("voucherNumber", v.voucherNumber)
+        o.put("voucherType", v.voucherType)
+        o.put("date", v.date)
+        o.put("accountName", v.accountName)
+        o.put("description", v.description)
+        o.put("debit", v.debit)
+        o.put("credit", v.credit)
+        o.put("amount", v.amount)
+        o.put("referenceNotes", v.referenceNotes)
+        if (v.bankAccountId != null) o.put("bankAccountId", v.bankAccountId)
+        o.put("createdAt", v.createdAt)
+        return o
+    }
+
+    private fun jsonToVoucher(o: JSONObject): VoucherEntity {
+        return VoucherEntity(
+            id = 0,
+            voucherNumber = o.optString("voucherNumber", ""),
+            voucherType = o.optString("voucherType", "Other"),
+            date = o.optLong("date", System.currentTimeMillis()),
+            accountName = o.optString("accountName", ""),
+            description = o.optString("description", ""),
+            debit = o.optDouble("debit", 0.0),
+            credit = o.optDouble("credit", 0.0),
+            amount = o.optDouble("amount", 0.0),
+            referenceNotes = o.optString("referenceNotes", ""),
+            bankAccountId = if (o.has("bankAccountId")) o.optLong("bankAccountId") else null,
+            createdAt = o.optLong("createdAt", System.currentTimeMillis())
         )
     }
 }

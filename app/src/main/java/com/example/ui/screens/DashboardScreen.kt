@@ -65,27 +65,27 @@ fun DashboardScreen(
         cal.timeInMillis
     }
 
-    val totalSales: Double = summaryTotals?.totalRevenue ?: remember(sales) { sales.sumOf { it.grandTotal } }
-    val todaySales: Double = summaryTotals?.todaySales ?: remember(sales, todayStart) {
+    val totalSales: Double = remember(sales) { sales.sumOf { it.grandTotal } }
+    val todaySales: Double = remember(sales, todayStart) {
         sales.filter { it.createdAt >= todayStart }.sumOf { it.grandTotal }
     }
-    val totalExpenses: Double = summaryTotals?.monthlyExpenses ?: remember(expenses) { expenses.sumOf { it.amount } }
+    val generalExpenses: Double = remember(expenses) { expenses.filter { it.category != "Salary" }.sumOf { it.amount } }
     val totalSalaries: Double = remember(salaryPayments) { salaryPayments.sumOf { it.netSalary } }
-    val totalOutflow: Double = totalExpenses + totalSalaries
+    val totalExpenses: Double = generalExpenses + totalSalaries
 
-    val netProfitVal: Double = summaryTotals?.netProfit ?: (totalSales - totalOutflow)
+    val netProfitVal: Double = totalSales - totalExpenses
 
-    val monthlySales: Double = summaryTotals?.monthlySales ?: remember(sales, monthStart) {
+    val monthlySales: Double = remember(sales, monthStart) {
         sales.filter { it.createdAt >= monthStart }.sumOf { it.grandTotal }
     }
-    val monthlyExpenses: Double = summaryTotals?.monthlyExpenses ?: remember(expenses, monthStart) {
-        expenses.filter { it.date >= monthStart }.sumOf { it.amount }
+    val monthlyGeneralExpenses: Double = remember(expenses, monthStart) {
+        expenses.filter { it.category != "Salary" && it.date >= monthStart }.sumOf { it.amount }
     }
     val monthlySalaries: Double = remember(salaryPayments, monthStart) {
         salaryPayments.filter { it.paymentDate >= monthStart }.sumOf { it.netSalary }
     }
-    val monthlyOutflow: Double = monthlyExpenses + monthlySalaries
-    val monthlyProfitVal: Double = summaryTotals?.monthlyProfit ?: (monthlySales - monthlyOutflow)
+    val monthlyOutflow: Double = monthlyGeneralExpenses + monthlySalaries
+    val monthlyProfitVal: Double = monthlySales - monthlyOutflow
 
     val recentSalesTrendData = remember(sales) {
         val dateFormat = SimpleDateFormat("EEE", Locale.US)
@@ -343,7 +343,7 @@ fun DashboardScreen(
                                 )
                             )
                             Text(
-                                text = formatCurrency(monthlyExpenses),
+                                text = formatCurrency(monthlyGeneralExpenses),
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     color = DangerRed

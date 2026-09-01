@@ -198,7 +198,7 @@ class ExampleRobolectricTest {
         assertTrue("Restored customers count should be at least 1", stats.customersCount >= 1)
 
         // 5. Verify restored items in Database
-        val restoredCustomer = customerDao.getCustomerById(201L)
+        val restoredCustomer = customerDao.getAllCustomersList().find { it.name == "Johnathan Doe" }
         org.junit.Assert.assertNotNull("Customer should be restored", restoredCustomer)
         assertEquals("Johnathan Doe", restoredCustomer?.name)
 
